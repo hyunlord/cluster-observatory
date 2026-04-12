@@ -500,6 +500,12 @@ export interface GkeDashboardData {
     costSource: CostSource;
     signals: EfficiencyOverviewSignal[];
     note: string;
+    costSummary: {
+      totalMonthlyCost: number | null;
+      idleMonthlyCost: number | null;
+      sharedMonthlyCost: number | null;
+      topPriorityLabel: string;
+    };
   };
   nodes: NodeUsageRow[];
   namespaces: NamespaceUsageRow[];
@@ -1348,7 +1354,8 @@ function mergeOpenCostIntoWorkloads(workloads: WorkloadRow[], summary?: OpenCost
     summary.workloads.map((workload) => [`${workload.namespace}/${workload.name}`, workload])
   );
 
-  return workloads.map((workload) => {
+  return workloads
+    .map((workload) => {
     const openCost = costByWorkload.get(workload.id);
     if (!openCost) {
       return workload;
@@ -1359,7 +1366,7 @@ function mergeOpenCostIntoWorkloads(workloads: WorkloadRow[], summary?: OpenCost
 
     return {
       ...workload,
-      costSource: "opencost",
+      costSource: "opencost" as const,
       actualMonthlyCost,
       idleMonthlyCost,
       priorityScore: getPriorityScore(
@@ -1371,7 +1378,13 @@ function mergeOpenCostIntoWorkloads(workloads: WorkloadRow[], summary?: OpenCost
         actualMonthlyCost
       )
     };
-  });
+    })
+    .sort(
+      (left, right) =>
+        (right.actualMonthlyCost ?? 0) - (left.actualMonthlyCost ?? 0) ||
+        right.priorityScore - left.priorityScore ||
+        right.pressurePercentage - left.pressurePercentage
+    );
 }
 
 function mapNamespaces(
@@ -1409,7 +1422,11 @@ function mapNamespaces(
         )
       };
     })
-    .sort((left, right) => right.pressurePercentage - left.pressurePercentage);
+    .sort(
+      (left, right) =>
+        (right.efficiency.actualMonthlyCost ?? 0) - (left.efficiency.actualMonthlyCost ?? 0) ||
+        right.pressurePercentage - left.pressurePercentage
+    );
 }
 
 function createEfficiencyOverview(
@@ -1531,7 +1548,15 @@ function createEfficiencyOverview(
     note:
       costSource === "opencost"
         ? "OpenCost is connected for actual cost values. Rightsizing and idle signals still include heuristic guidance."
-        : "Heuristic only. These signals highlight likely waste and headroom issues, not billing data."
+        : "Heuristic only. These signals highlight likely waste and headroom issues, not billing data.",
+    costSummary: {
+      totalMonthlyCost: openCostSummary?.cluster?.totalMonthlyCost ?? null,
+      idleMonthlyCost: openCostSummary?.cluster?.idleMonthlyCost ?? null,
+      sharedMonthlyCost: openCostSummary?.cluster?.sharedMonthlyCost ?? null,
+      topPriorityLabel: rightsizingCandidate
+        ? `${rightsizingCandidate.name} · ${rightsizingCandidate.rightsizingHint}`
+        : "Observe current footprint"
+    }
   };
 }
 

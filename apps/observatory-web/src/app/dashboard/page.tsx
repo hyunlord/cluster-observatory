@@ -472,6 +472,40 @@ export default async function DashboardPage(props: DashboardPageProps) {
           </div>
         </div>
         <p className="muted">{data.efficiency.note}</p>
+        <div className="hero-footprint-grid efficiency-cost-grid">
+          <article className="hero-footprint-card">
+            <span>Monthly cluster cost</span>
+            <strong>
+              {data.efficiency.costSummary.totalMonthlyCost !== null
+                ? `$${data.efficiency.costSummary.totalMonthlyCost.toFixed(2)}`
+                : "Awaiting OpenCost feed"}
+            </strong>
+            <p className="muted">Actual cluster cost when OpenCost is connected.</p>
+          </article>
+          <article className="hero-footprint-card">
+            <span>Idle monthly cost</span>
+            <strong>
+              {data.efficiency.costSummary.idleMonthlyCost !== null
+                ? `$${data.efficiency.costSummary.idleMonthlyCost.toFixed(2)}`
+                : "Awaiting OpenCost feed"}
+            </strong>
+            <p className="muted">Idle allocation exposed by the cost feed.</p>
+          </article>
+          <article className="hero-footprint-card">
+            <span>Shared monthly cost</span>
+            <strong>
+              {data.efficiency.costSummary.sharedMonthlyCost !== null
+                ? `$${data.efficiency.costSummary.sharedMonthlyCost.toFixed(2)}`
+                : "Awaiting OpenCost feed"}
+            </strong>
+            <p className="muted">Shared platform overhead before allocation.</p>
+          </article>
+          <article className="hero-footprint-card">
+            <span>Top priority</span>
+            <strong>{data.efficiency.costSummary.topPriorityLabel}</strong>
+            <p className="muted">Highest-priority rightsizing action from the current snapshot.</p>
+          </article>
+        </div>
         <div className="hot-alerts-grid">
           {data.efficiency.signals.map((signal) => (
             <article className={`hot-alert-card hot-alert-card-${signal.tone}`} key={`${signal.title}-${signal.href}`}>

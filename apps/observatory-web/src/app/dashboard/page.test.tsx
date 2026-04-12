@@ -28,6 +28,10 @@ describe("/dashboard", () => {
     expect(html).toContain("History warming up");
     expect(html).toContain("Efficiency Signals");
     expect(html).toContain("Cost source");
+    expect(html).toContain("Monthly cluster cost");
+    expect(html).toContain("Idle monthly cost");
+    expect(html).toContain("Shared monthly cost");
+    expect(html).toContain("Top priority");
     expect(html).toContain("Most over-requested workload");
     expect(html).toContain("Highest idle allocation namespace");
     expect(html).toContain("Top rightsizing candidate");

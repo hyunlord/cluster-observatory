@@ -226,6 +226,13 @@ describe("getGkeDashboardData", () => {
               memoryUsed: 12,
               gpuUsed: 0,
               topWorkload: "api"
+            },
+            {
+              name: "monitoring",
+              cpuUsed: 1.2,
+              memoryUsed: 3.5,
+              gpuUsed: 0,
+              topWorkload: "grafana"
             }
           ],
           workloads: [
@@ -238,6 +245,16 @@ describe("getGkeDashboardData", () => {
               usage: { cpu: 1.2, memory: 8, gpu: 0 },
               requests: { cpu: 2.4, memory: 16, gpu: 0 },
               limits: { cpu: 4, memory: 24, gpu: 0 }
+            },
+            {
+              namespace: "monitoring",
+              name: "grafana",
+              kind: "Deployment",
+              replicas: 1,
+              node: "node-a",
+              usage: { cpu: 0.2, memory: 2, gpu: 0 },
+              requests: { cpu: 1.2, memory: 6, gpu: 0 },
+              limits: { cpu: 2, memory: 8, gpu: 0 }
             }
           ]
         },
@@ -263,6 +280,12 @@ describe("getGkeDashboardData", () => {
               monthlyCost: 410.25,
               idleMonthlyCost: 90.5,
               sharedMonthlyCost: 34.2
+            },
+            {
+              name: "monitoring",
+              monthlyCost: 120.0,
+              idleMonthlyCost: 50.0,
+              sharedMonthlyCost: 12.0
             }
           ],
           workloads: [
@@ -272,6 +295,13 @@ describe("getGkeDashboardData", () => {
               monthlyCost: 220.5,
               idleMonthlyCost: 45.75,
               sharedMonthlyCost: 10.0
+            },
+            {
+              namespace: "monitoring",
+              name: "grafana",
+              monthlyCost: 75.0,
+              idleMonthlyCost: 28.0,
+              sharedMonthlyCost: 8.0
             }
           ]
         },
@@ -285,8 +315,13 @@ describe("getGkeDashboardData", () => {
     expect(data.efficiency.costSource).toBe("opencost");
     expect(data.efficiency.signals.some((signal) => signal.title === "Top cost hotspot")).toBe(true);
     expect(data.workloads[0]?.actualMonthlyCost).toBe(220.5);
+    expect(data.workloads[0]?.name).toBe("api");
     expect(data.workloads[0]?.costSource).toBe("opencost");
     expect(data.namespaces[0]?.efficiency.actualMonthlyCost).toBe(410.25);
+    expect(data.namespaces[0]?.name).toBe("application");
+    expect(data.efficiency.costSummary.totalMonthlyCost).toBe(1234.56);
+    expect(data.efficiency.costSummary.idleMonthlyCost).toBe(210.75);
+    expect(data.efficiency.costSummary.sharedMonthlyCost).toBe(125.1);
   });
 
   it("reads a sibling batch status file when a local snapshot path is configured", async () => {
