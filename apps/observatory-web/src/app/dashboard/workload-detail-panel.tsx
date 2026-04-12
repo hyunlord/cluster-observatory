@@ -144,6 +144,26 @@ export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: Workl
             <span>Cost source</span>
             <strong>{detail.workload.costSource}</strong>
           </div>
+          <div className="side-kpi">
+            <span>Priority score</span>
+            <strong>{detail.workload.priorityScore}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Estimated monthly footprint</span>
+            <strong>
+              {detail.workload.estimatedMonthlyCost !== null
+                ? `$${detail.workload.estimatedMonthlyCost.toFixed(2)}`
+                : "n/a"}
+            </strong>
+          </div>
+          <div className="side-kpi">
+            <span>Actual monthly cost</span>
+            <strong>
+              {detail.workload.actualMonthlyCost !== null
+                ? `$${detail.workload.actualMonthlyCost.toFixed(2)}`
+                : "Awaiting OpenCost feed"}
+            </strong>
+          </div>
         </div>
       </div>
 

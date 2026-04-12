@@ -136,6 +136,30 @@ export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelP
             <span>Cost source</span>
             <strong>{detail.namespace.efficiency.costSource}</strong>
           </div>
+          <div className="side-kpi">
+            <span>Estimated monthly footprint</span>
+            <strong>
+              {detail.namespace.efficiency.estimatedMonthlyCost !== null
+                ? `$${detail.namespace.efficiency.estimatedMonthlyCost.toFixed(2)}`
+                : "n/a"}
+            </strong>
+          </div>
+          <div className="side-kpi">
+            <span>Idle monthly cost</span>
+            <strong>
+              {detail.namespace.efficiency.idleMonthlyCost !== null
+                ? `$${detail.namespace.efficiency.idleMonthlyCost.toFixed(2)}`
+                : "n/a"}
+            </strong>
+          </div>
+          <div className="side-kpi">
+            <span>Actual monthly cost</span>
+            <strong>
+              {detail.namespace.efficiency.actualMonthlyCost !== null
+                ? `$${detail.namespace.efficiency.actualMonthlyCost.toFixed(2)}`
+                : "Awaiting OpenCost feed"}
+            </strong>
+          </div>
         </div>
       </div>
 

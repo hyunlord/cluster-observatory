@@ -463,8 +463,12 @@ export default async function DashboardPage(props: DashboardPageProps) {
           </div>
           <div className="hero-chip-row">
             <span className="metric-chip">Cost source</span>
-            <span className="status-pill status-pill-warning">{data.efficiency.costSource}</span>
-            <span className="metric-chip">Heuristic only</span>
+            <span className={`status-pill status-pill-${data.efficiency.costSource === "opencost" ? "healthy" : "warning"}`}>
+              {data.efficiency.costSource}
+            </span>
+            <span className="metric-chip">
+              {data.efficiency.costSource === "opencost" ? "OpenCost connected" : "Heuristic only"}
+            </span>
           </div>
         </div>
         <p className="muted">{data.efficiency.note}</p>

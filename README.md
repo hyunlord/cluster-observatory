@@ -87,6 +87,18 @@ GKE_DASHBOARD_HISTORY_PATH=.local/history/index.json \
 pnpm dev
 ```
 
+If you have an OpenCost summary export available, you can wire that in too. The dashboard will keep heuristic efficiency signals, but switch cost fields from placeholder mode to actual cost mode when the file is present:
+
+```bash
+GKE_DASHBOARD_SNAPSHOT_PATH=.local/gke-snapshot.local.json \
+GKE_DASHBOARD_BATCH_STATUS_PATH=.local/gke-snapshot-batch-status.json \
+GKE_DASHBOARD_HISTORY_PATH=.local/history/index.json \
+GKE_DASHBOARD_OPENCOST_PATH=.local/opencost-summary.json \
+pnpm dev
+```
+
+Without an OpenCost summary file, the app will continue to show heuristic efficiency hints and clearly label cost fields as waiting for OpenCost.
+
 ## Keeping the snapshot fresh
 
 The dashboard can auto-refresh the browser, but the underlying snapshot still needs to be recollected. Use the bundled batch runner to keep `.local/gke-snapshot.local.json` fresh:

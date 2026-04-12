@@ -25,6 +25,9 @@ describe("/dashboard/namespaces/[namespace]", () => {
     expect(html).toContain("Idle allocation estimate");
     expect(html).toContain("Over-requested workloads");
     expect(html).toContain("Cost source");
+    expect(html).toContain("Estimated monthly footprint");
+    expect(html).toContain("Idle monthly cost");
+    expect(html).toContain("Awaiting OpenCost feed");
     expect(html).toContain("Open top workload");
     expect(html).toContain("Open busiest node");
     expect(html).toContain("Snapshot trust");

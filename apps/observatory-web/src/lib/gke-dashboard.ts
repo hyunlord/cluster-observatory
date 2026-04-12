@@ -57,6 +57,7 @@ export interface NamespaceEfficiencySummary {
   costSource: CostSource;
   estimatedMonthlyCost: number | null;
   actualMonthlyCost: number | null;
+  idleMonthlyCost: number | null;
 }
 
 export interface WorkloadRow {
@@ -85,6 +86,8 @@ export interface WorkloadRow {
   costSource: CostSource;
   estimatedMonthlyCost: number | null;
   actualMonthlyCost: number | null;
+  idleMonthlyCost: number | null;
+  priorityScore: number;
 }
 
 export interface CollectionIssue {
@@ -412,6 +415,36 @@ interface HistoryIndexFile {
   entries?: HistoryIndexEntry[];
 }
 
+interface OpenCostClusterSummary {
+  totalMonthlyCost?: number;
+  idleMonthlyCost?: number;
+  sharedMonthlyCost?: number;
+}
+
+interface OpenCostNamespaceSummary {
+  name: string;
+  monthlyCost?: number;
+  idleMonthlyCost?: number;
+  sharedMonthlyCost?: number;
+}
+
+interface OpenCostWorkloadSummary {
+  namespace: string;
+  name: string;
+  monthlyCost?: number;
+  idleMonthlyCost?: number;
+  sharedMonthlyCost?: number;
+}
+
+interface OpenCostSummaryFile {
+  source?: string;
+  capturedAt?: string;
+  currency?: string;
+  cluster?: OpenCostClusterSummary;
+  namespaces?: OpenCostNamespaceSummary[];
+  workloads?: OpenCostWorkloadSummary[];
+}
+
 export interface GkeDashboardData {
   cluster: {
     name: string;
@@ -484,6 +517,8 @@ interface WorkloadEfficiencyAnalytics {
   costSource: CostSource;
   estimatedMonthlyCost: number | null;
   actualMonthlyCost: number | null;
+  idleMonthlyCost: number | null;
+  priorityScore: number;
 }
 
 function getMetricPercentage(metric: MetricSnapshot): number {
@@ -621,6 +656,14 @@ function formatIdleEstimate(cpu: number, memory: number) {
   return `CPU ${formatMetricScalar(Math.max(cpu, 0), "vCPU")} · Memory ${formatMetricScalar(Math.max(memory, 0), "GiB", 1)}`;
 }
 
+function estimateMonthlyCost(cpu: number, memory: number, gpu: number) {
+  return Number((cpu * 18 + memory * 4 + gpu * 120).toFixed(2));
+}
+
+function estimateIdleMonthlyCost(idleCpu: number, idleMemory: number) {
+  return Number((Math.max(idleCpu, 0) * 18 + Math.max(idleMemory, 0) * 4).toFixed(2));
+}
+
 function getRequestRatio(usage: number, request: number) {
   return request > 0 ? usage / request : null;
 }
@@ -673,6 +716,21 @@ function getRightsizingHint(
 
 function getIdleWeight(cpuIdle: number, memoryIdle: number) {
   return cpuIdle * 10 + memoryIdle;
+}
+
+function getPriorityScore(
+  efficiencyScore: number,
+  overRequested: boolean,
+  underRequestRisk: boolean,
+  confidence: EfficiencyConfidence,
+  idleMonthlyCost: number,
+  actualMonthlyCost: number | null
+) {
+  const base = overRequested ? 55 : underRequestRisk ? 65 : 30;
+  const confidenceWeight = confidence === "high" ? 15 : confidence === "medium" ? 10 : 5;
+  const wasteWeight = Math.min(20, Math.round(idleMonthlyCost / 10));
+  const costWeight = actualMonthlyCost ? Math.min(20, Math.round(actualMonthlyCost / 25)) : 0;
+  return Math.max(0, Math.min(100, Math.round(base + confidenceWeight + wasteWeight + costWeight + (100 - efficiencyScore) * 0.1)));
 }
 
 function getPressureTone(percentage: number): "healthy" | "warning" | "critical" {
@@ -1016,9 +1074,16 @@ function createWorkloadEfficiencyAnalytics(
   );
   const idleCpu = Math.max(workload.requests.cpu - workload.usage.cpu, 0);
   const idleMemory = Math.max(workload.requests.memory - workload.usage.memory, 0);
+  const efficiencyScore = getEfficiencyScore(cpuRatio, memoryRatio, overRequested, underRequestRisk);
+  const idleMonthlyCost = estimateIdleMonthlyCost(idleCpu, idleMemory);
+  const estimatedMonthlyCost = estimateMonthlyCost(
+    workload.requests.cpu,
+    workload.requests.memory,
+    workload.requests.gpu
+  );
 
   return {
-    efficiencyScore: getEfficiencyScore(cpuRatio, memoryRatio, overRequested, underRequestRisk),
+    efficiencyScore,
     efficiencyConfidence,
     overRequested,
     underRequestRisk,
@@ -1027,8 +1092,17 @@ function createWorkloadEfficiencyAnalytics(
     idleMemory,
     idleAllocationEstimate: formatIdleEstimate(idleCpu, idleMemory),
     costSource: "heuristic",
-    estimatedMonthlyCost: null,
-    actualMonthlyCost: null
+    estimatedMonthlyCost,
+    actualMonthlyCost: null,
+    idleMonthlyCost,
+    priorityScore: getPriorityScore(
+      efficiencyScore,
+      overRequested,
+      underRequestRisk,
+      efficiencyConfidence,
+      idleMonthlyCost,
+      null
+    )
   };
 }
 
@@ -1203,10 +1277,12 @@ function createWorkloadRows(
         idleAllocationEstimate: analytics.idleAllocationEstimate,
         costSource: analytics.costSource,
         estimatedMonthlyCost: analytics.estimatedMonthlyCost,
-        actualMonthlyCost: analytics.actualMonthlyCost
+        actualMonthlyCost: analytics.actualMonthlyCost,
+        idleMonthlyCost: analytics.idleMonthlyCost,
+        priorityScore: analytics.priorityScore
       };
     })
-    .sort((left, right) => right.pressurePercentage - left.pressurePercentage);
+    .sort((left, right) => right.priorityScore - left.priorityScore || right.pressurePercentage - left.pressurePercentage);
 }
 
 function createNamespaceEfficiencySummary(
@@ -1257,19 +1333,62 @@ function createNamespaceEfficiencySummary(
           ? "medium"
           : "high",
     costSource: "heuristic",
-    estimatedMonthlyCost: null,
-    actualMonthlyCost: null
+    estimatedMonthlyCost: Number(workloadRows.reduce((sum, workload) => sum + (workload.estimatedMonthlyCost ?? 0), 0).toFixed(2)),
+    actualMonthlyCost: null,
+    idleMonthlyCost: Number(workloadRows.reduce((sum, workload) => sum + (workload.idleMonthlyCost ?? 0), 0).toFixed(2))
   };
+}
+
+function mergeOpenCostIntoWorkloads(workloads: WorkloadRow[], summary?: OpenCostSummaryFile): WorkloadRow[] {
+  if (!summary?.workloads?.length) {
+    return workloads;
+  }
+
+  const costByWorkload = new Map<string, OpenCostWorkloadSummary>(
+    summary.workloads.map((workload) => [`${workload.namespace}/${workload.name}`, workload])
+  );
+
+  return workloads.map((workload) => {
+    const openCost = costByWorkload.get(workload.id);
+    if (!openCost) {
+      return workload;
+    }
+
+    const actualMonthlyCost = openCost.monthlyCost ?? null;
+    const idleMonthlyCost = openCost.idleMonthlyCost ?? workload.idleMonthlyCost;
+
+    return {
+      ...workload,
+      costSource: "opencost",
+      actualMonthlyCost,
+      idleMonthlyCost,
+      priorityScore: getPriorityScore(
+        workload.efficiencyScore,
+        workload.overRequested,
+        workload.underRequestRisk,
+        workload.efficiencyConfidence,
+        idleMonthlyCost ?? 0,
+        actualMonthlyCost
+      )
+    };
+  });
 }
 
 function mapNamespaces(
   snapshot: GkeSnapshotFile,
   workloadRows: WorkloadRow[],
-  snapshotConfidence: EfficiencyConfidence
+  snapshotConfidence: EfficiencyConfidence,
+  openCostSummary?: OpenCostSummaryFile
 ): NamespaceUsageRow[] {
+  const namespaceCostMap = new Map(
+    (openCostSummary?.namespaces ?? []).map((namespace) => [namespace.name, namespace] as const)
+  );
+
   return snapshot.namespaces
     .map((namespace) => {
       const namespaceWorkloads = workloadRows.filter((workload) => workload.namespace === namespace.name);
+      const namespaceCost = namespaceCostMap.get(namespace.name);
+      const baseEfficiency = createNamespaceEfficiencySummary(namespaceWorkloads, snapshotConfidence);
       return {
         name: namespace.name,
         cpu: formatNamespaceMetric(namespace.cpuUsed, "cores"),
@@ -1278,7 +1397,12 @@ function mapNamespaces(
         topWorkload: namespace.topWorkload,
         alerts: namespace.alerts ?? [],
         events: namespace.events ?? [],
-        efficiency: createNamespaceEfficiencySummary(namespaceWorkloads, snapshotConfidence),
+        efficiency: {
+          ...baseEfficiency,
+          costSource: namespaceCost ? "opencost" : baseEfficiency.costSource,
+          actualMonthlyCost: namespaceCost?.monthlyCost ?? baseEfficiency.actualMonthlyCost,
+          idleMonthlyCost: namespaceCost?.idleMonthlyCost ?? baseEfficiency.idleMonthlyCost
+        },
         pressurePercentage: Math.min(
           100,
           Math.round(Math.max(namespace.cpuUsed * 18, namespace.memoryUsed * 3.4, namespace.gpuUsed > 0 ? 100 : 0))
@@ -1290,8 +1414,15 @@ function mapNamespaces(
 
 function createEfficiencyOverview(
   workloads: WorkloadRow[],
-  namespaces: NamespaceUsageRow[]
+  namespaces: NamespaceUsageRow[],
+  openCostSummary?: OpenCostSummaryFile
 ): GkeDashboardData["efficiency"] {
+  const costSource: CostSource =
+    workloads.some((workload) => workload.costSource === "opencost") ||
+    namespaces.some((namespace) => namespace.efficiency.costSource === "opencost") ||
+    Boolean(openCostSummary)
+      ? "opencost"
+      : "heuristic";
   const mostOverRequested =
     [...workloads]
       .filter((workload) => workload.overRequested)
@@ -1361,10 +1492,46 @@ function createEfficiencyOverview(
     });
   }
 
+  if (costSource === "opencost") {
+    const topCostWorkload =
+      [...workloads]
+        .filter((workload) => workload.actualMonthlyCost !== null)
+        .sort((left, right) => (right.actualMonthlyCost ?? 0) - (left.actualMonthlyCost ?? 0))[0] ?? workloads[0];
+
+    if (topCostWorkload) {
+      signals.push({
+        title: "Top cost hotspot",
+        value:
+          topCostWorkload.actualMonthlyCost !== null
+            ? `$${topCostWorkload.actualMonthlyCost.toFixed(2)}/mo`
+            : "Awaiting OpenCost feed",
+        detail: `${topCostWorkload.namespace}/${topCostWorkload.name} · idle $${(topCostWorkload.idleMonthlyCost ?? 0).toFixed(2)}/mo`,
+        tone:
+          topCostWorkload.actualMonthlyCost !== null && topCostWorkload.actualMonthlyCost >= 200
+            ? "warning"
+            : "healthy",
+        href: `/dashboard/workloads/${encodeURIComponent(topCostWorkload.namespace)}/${encodeURIComponent(topCostWorkload.name)}`,
+        actionLabel: "Open workload"
+      });
+    }
+  } else {
+    signals.push({
+      title: "Cost feed status",
+      value: "Awaiting OpenCost feed",
+      detail: "Showing heuristic efficiency only until an OpenCost summary is connected.",
+      tone: "warning",
+      href: "#snapshot-status",
+      actionLabel: "Inspect snapshot status"
+    });
+  }
+
   return {
-    costSource: "heuristic",
+    costSource,
     signals,
-    note: "Heuristic only. These signals highlight likely waste and headroom issues, not billing data."
+    note:
+      costSource === "opencost"
+        ? "OpenCost is connected for actual cost values. Rightsizing and idle signals still include heuristic guidance."
+        : "Heuristic only. These signals highlight likely waste and headroom issues, not billing data."
   };
 }
 
@@ -1555,6 +1722,43 @@ async function resolveHistoryPath(
   return undefined;
 }
 
+async function resolveOpenCostPath(
+  workspaceRoot: string,
+  snapshotPath?: string
+): Promise<string | undefined> {
+  const configuredPath = process.env.GKE_DASHBOARD_OPENCOST_PATH;
+  const candidates: string[] = [];
+
+  if (configuredPath) {
+    if (path.isAbsolute(configuredPath)) {
+      candidates.push(configuredPath);
+    } else {
+      let current = workspaceRoot;
+      while (true) {
+        candidates.push(path.resolve(current, configuredPath));
+        const parent = path.dirname(current);
+        if (parent === current) {
+          break;
+        }
+        current = parent;
+      }
+    }
+  } else if (snapshotPath) {
+    candidates.push(path.join(path.dirname(snapshotPath), "opencost-summary.json"));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  return undefined;
+}
+
 async function readSnapshot(
   workspaceRoot: string
 ): Promise<{ snapshot: GkeSnapshotFile; snapshotPath?: string }> {
@@ -1665,6 +1869,19 @@ async function readHistoryIndex(
   return createHistorySummary(Array.isArray(parsed.entries) ? parsed.entries : []);
 }
 
+async function readOpenCostSummary(
+  workspaceRoot: string,
+  snapshotPath: string | undefined
+): Promise<OpenCostSummaryFile | undefined> {
+  const openCostPath = await resolveOpenCostPath(workspaceRoot, snapshotPath);
+  if (!openCostPath) {
+    return undefined;
+  }
+
+  const raw = await readFile(openCostPath, "utf8");
+  return JSON.parse(raw) as OpenCostSummaryFile;
+}
+
 export async function getGkeDashboardData(workspaceRoot: string): Promise<GkeDashboardData> {
   const snapshotResult = await readSnapshot(workspaceRoot);
   const snapshot = snapshotResult.snapshot;
@@ -1678,8 +1895,9 @@ export async function getGkeDashboardData(workspaceRoot: string): Promise<GkeDas
   const trustNote = describeTrustNote(collectorConfidence, missingSources, issues);
   const batch = await readBatchStatus(workspaceRoot, snapshotResult.snapshotPath, collectorStatus);
   const history = await readHistoryIndex(workspaceRoot, snapshotResult.snapshotPath);
-  const workloads = createWorkloadRows(snapshot, collectorConfidence);
-  const namespaces = mapNamespaces(snapshot, workloads, collectorConfidence);
+  const openCostSummary = await readOpenCostSummary(workspaceRoot, snapshotResult.snapshotPath);
+  const workloads = mergeOpenCostIntoWorkloads(createWorkloadRows(snapshot, collectorConfidence), openCostSummary);
+  const namespaces = mapNamespaces(snapshot, workloads, collectorConfidence, openCostSummary);
 
   return {
     cluster: {
@@ -1707,7 +1925,7 @@ export async function getGkeDashboardData(workspaceRoot: string): Promise<GkeDas
       freshness: describeFreshness(snapshot.cluster.capturedAt),
       history
     },
-    efficiency: createEfficiencyOverview(workloads, namespaces),
+    efficiency: createEfficiencyOverview(workloads, namespaces, openCostSummary),
     nodes: mapNodes(snapshot),
     namespaces
   };

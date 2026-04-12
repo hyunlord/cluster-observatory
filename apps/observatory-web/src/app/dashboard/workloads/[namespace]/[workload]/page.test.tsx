@@ -40,6 +40,9 @@ describe("/dashboard/workloads/[namespace]/[workload]", () => {
     expect(html).toContain("Observe");
     expect(html).toContain("Estimated efficiency signal");
     expect(html).toContain("Cost source");
+    expect(html).toContain("Priority score");
+    expect(html).toContain("Estimated monthly footprint");
+    expect(html).toContain("Awaiting OpenCost feed");
     expect(html).toContain("Snapshot trust");
     expect(html).toContain("High confidence");
     expect(html).toContain("Full coverage");

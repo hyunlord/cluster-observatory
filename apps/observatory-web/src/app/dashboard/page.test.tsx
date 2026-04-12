@@ -32,6 +32,8 @@ describe("/dashboard", () => {
     expect(html).toContain("Highest idle allocation namespace");
     expect(html).toContain("Top rightsizing candidate");
     expect(html).toContain("Heuristic only");
+    expect(html).toContain("Cost feed status");
+    expect(html).toContain("Awaiting OpenCost feed");
     expect(html).toContain("Snapshot status");
     expect(html).toContain("Collector confidence");
     expect(html).toContain("Missing sources");

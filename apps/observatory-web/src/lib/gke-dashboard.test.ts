@@ -8,6 +8,7 @@ import { buildDashboardView, buildNodeDetailView } from "./gke-dashboard-view";
 const tempDirs: string[] = [];
 const originalSnapshotPath = process.env.GKE_DASHBOARD_SNAPSHOT_PATH;
 const originalHistoryPath = process.env.GKE_DASHBOARD_HISTORY_PATH;
+const originalOpenCostPath = process.env.GKE_DASHBOARD_OPENCOST_PATH;
 
 describe("getGkeDashboardData", () => {
   afterEach(() => {
@@ -21,6 +22,11 @@ describe("getGkeDashboardData", () => {
       process.env.GKE_DASHBOARD_HISTORY_PATH = originalHistoryPath;
     } else {
       delete process.env.GKE_DASHBOARD_HISTORY_PATH;
+    }
+    if (originalOpenCostPath) {
+      process.env.GKE_DASHBOARD_OPENCOST_PATH = originalOpenCostPath;
+    } else {
+      delete process.env.GKE_DASHBOARD_OPENCOST_PATH;
     }
   });
 
@@ -46,9 +52,11 @@ describe("getGkeDashboardData", () => {
     expect(Array.isArray(data.snapshot.issues)).toBe(true);
     expect(data.efficiency.costSource).toBe("heuristic");
     expect(data.efficiency.signals.length).toBeGreaterThan(0);
+    expect(data.efficiency.signals.some((signal) => signal.title === "Cost feed status")).toBe(true);
     expect(data.workloads[0]?.rightsizingHint).toBeDefined();
     expect(data.workloads[0]?.efficiencyConfidence).toBeDefined();
     expect(data.workloads[0]?.idleAllocationEstimate).toBeDefined();
+    expect(data.workloads[0]?.estimatedMonthlyCost).not.toBeNull();
     expect(data.workloads[0]?.events).toBeDefined();
     expect(data.namespaces[0]?.alerts).toBeDefined();
     expect(data.namespaces[0]?.events).toBeDefined();
@@ -170,7 +178,115 @@ describe("getGkeDashboardData", () => {
     expect(data.workloads[0]?.rightsizingHint).toBeDefined();
     expect(data.namespaces[0]?.efficiency).toBeDefined();
     expect(data.efficiency.costSource).toBe("heuristic");
+    expect(data.efficiency.signals.some((signal) => signal.title === "Cost feed status")).toBe(true);
     expect(data.workloads[0]?.events).toEqual([]);
+  });
+
+  it("merges an OpenCost summary file when available and flips the cost source to opencost", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "cluster-observatory-dashboard-opencost-"));
+    tempDirs.push(root);
+
+    process.env.GKE_DASHBOARD_SNAPSHOT_PATH = ".local/gke-snapshot.local.json";
+    await mkdir(path.join(root, ".local"), { recursive: true });
+    await writeFile(
+      path.join(root, ".local", "gke-snapshot.local.json"),
+      JSON.stringify(
+        {
+          cluster: {
+            name: "cost-cluster",
+            region: "cost-region",
+            source: "kubectl top snapshot",
+            capturedAt: new Date().toISOString(),
+            health: "Stable"
+          },
+          snapshot: {
+            collectorStatus: "complete",
+            collectionWarnings: [],
+            collectorConfidence: "high",
+            missingSources: [],
+            issues: []
+          },
+          usage: {
+            cpu: { allocatable: 16, used: 5, unit: "vCPU" },
+            memory: { allocatable: 64, used: 20, unit: "GiB" },
+            gpu: { allocatable: 1, used: 0, unit: "GPU", model: "Test GPU" }
+          },
+          nodes: [
+            {
+              name: "node-a",
+              status: "Ready",
+              cpu: { allocatable: 16, used: 5, unit: "vCPU" },
+              memory: { allocatable: 64, used: 20, unit: "GiB" }
+            }
+          ],
+          namespaces: [
+            {
+              name: "application",
+              cpuUsed: 3,
+              memoryUsed: 12,
+              gpuUsed: 0,
+              topWorkload: "api"
+            }
+          ],
+          workloads: [
+            {
+              namespace: "application",
+              name: "api",
+              kind: "Deployment",
+              replicas: 3,
+              node: "node-a",
+              usage: { cpu: 1.2, memory: 8, gpu: 0 },
+              requests: { cpu: 2.4, memory: 16, gpu: 0 },
+              limits: { cpu: 4, memory: 24, gpu: 0 }
+            }
+          ]
+        },
+        null,
+        2
+      )
+    );
+    await writeFile(
+      path.join(root, ".local", "opencost-summary.json"),
+      JSON.stringify(
+        {
+          source: "opencost",
+          capturedAt: "2026-04-13T00:00:00.000Z",
+          currency: "USD",
+          cluster: {
+            totalMonthlyCost: 1234.56,
+            idleMonthlyCost: 210.75,
+            sharedMonthlyCost: 125.1
+          },
+          namespaces: [
+            {
+              name: "application",
+              monthlyCost: 410.25,
+              idleMonthlyCost: 90.5,
+              sharedMonthlyCost: 34.2
+            }
+          ],
+          workloads: [
+            {
+              namespace: "application",
+              name: "api",
+              monthlyCost: 220.5,
+              idleMonthlyCost: 45.75,
+              sharedMonthlyCost: 10.0
+            }
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    const data = await getGkeDashboardData(root);
+
+    expect(data.efficiency.costSource).toBe("opencost");
+    expect(data.efficiency.signals.some((signal) => signal.title === "Top cost hotspot")).toBe(true);
+    expect(data.workloads[0]?.actualMonthlyCost).toBe(220.5);
+    expect(data.workloads[0]?.costSource).toBe("opencost");
+    expect(data.namespaces[0]?.efficiency.actualMonthlyCost).toBe(410.25);
   });
 
   it("reads a sibling batch status file when a local snapshot path is configured", async () => {
