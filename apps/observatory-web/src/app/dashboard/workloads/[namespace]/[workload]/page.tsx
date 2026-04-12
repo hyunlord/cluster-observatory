@@ -54,7 +54,7 @@ export default async function WorkloadDetailPage(props: WorkloadDetailPageProps)
         </div>
       </header>
 
-      <WorkloadDetailPanel detail={view.selectedWorkload} mode="page" />
+      <WorkloadDetailPanel detail={view.selectedWorkload} mode="page" snapshot={data.snapshot} />
     </main>
   );
 }

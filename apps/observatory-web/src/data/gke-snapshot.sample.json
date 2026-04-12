@@ -8,7 +8,10 @@
   },
   "snapshot": {
     "collectorStatus": "complete",
-    "collectionWarnings": []
+    "collectionWarnings": [],
+    "collectorConfidence": "high",
+    "missingSources": [],
+    "issues": []
   },
   "usage": {
     "cpu": {
@@ -233,7 +236,7 @@
       "replicas": 1,
       "node": "demo-app-pool-a",
       "usage": { "cpu": 0.15, "memory": 2.1, "gpu": 0 },
-      "requests": { "cpu": 0.2, "memory": 4.0, "gpu": 0 },
+      "requests": { "cpu": 0.6, "memory": 7.0, "gpu": 0 },
       "limits": { "cpu": 0.5, "memory": 8.0, "gpu": 0 },
       "events": []
     },
@@ -257,9 +260,21 @@
       "name": "prometheus-server-0",
       "node": "demo-app-pool-a",
       "status": "Running",
+      "reason": "Running",
       "restartCount": 0,
       "readyContainers": 1,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "prometheus",
+          "ready": true,
+          "restartCount": 0,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 1, "memory": 16, "gpu": 0 },
+          "limits": { "cpu": 2, "memory": 24, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.85, "memory": 12.4, "gpu": 0 }
     },
     {
@@ -269,9 +284,21 @@
       "name": "api-gateway-0",
       "node": "demo-app-pool-b",
       "status": "Running",
+      "reason": "Running",
       "restartCount": 0,
       "readyContainers": 1,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "gateway",
+          "ready": true,
+          "restartCount": 0,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 0.5, "memory": 4, "gpu": 0 },
+          "limits": { "cpu": 1, "memory": 6, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.4, "memory": 2.8, "gpu": 0 }
     },
     {
@@ -281,9 +308,21 @@
       "name": "api-gateway-1",
       "node": "demo-app-pool-b",
       "status": "Running",
+      "reason": "Running",
       "restartCount": 0,
       "readyContainers": 1,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "gateway",
+          "ready": true,
+          "restartCount": 0,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 0.5, "memory": 4, "gpu": 0 },
+          "limits": { "cpu": 1, "memory": 6, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.4, "memory": 2.7, "gpu": 0 }
     },
     {
@@ -293,9 +332,30 @@
       "name": "api-gateway-2",
       "node": "demo-app-pool-b",
       "status": "CrashLoopBackOff",
+      "reason": "CrashLoopBackOff",
       "restartCount": 5,
-      "readyContainers": 0,
-      "totalContainers": 1,
+      "readyContainers": 1,
+      "totalContainers": 2,
+      "containers": [
+        {
+          "name": "gateway",
+          "ready": false,
+          "restartCount": 4,
+          "state": "waiting",
+          "reason": "CrashLoopBackOff",
+          "requests": { "cpu": 0.5, "memory": 4, "gpu": 0 },
+          "limits": { "cpu": 1, "memory": 6, "gpu": 0 }
+        },
+        {
+          "name": "sidecar-proxy",
+          "ready": true,
+          "restartCount": 1,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 0.1, "memory": 1, "gpu": 0 },
+          "limits": { "cpu": 0.5, "memory": 2, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.4, "memory": 2.7, "gpu": 0 }
     },
     {
@@ -305,9 +365,21 @@
       "name": "training-job-01-0",
       "node": "demo-gpu-pool-a",
       "status": "Running",
+      "reason": "Running",
       "restartCount": 1,
       "readyContainers": 1,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "trainer",
+          "ready": true,
+          "restartCount": 1,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 1, "memory": 16, "gpu": 1 },
+          "limits": { "cpu": 4, "memory": 32, "gpu": 1 }
+        }
+      ],
       "usage": { "cpu": 0.7, "memory": 8.6, "gpu": 0.4 }
     },
     {
@@ -317,9 +389,21 @@
       "name": "grafana-0",
       "node": "demo-app-pool-a",
       "status": "Running",
+      "reason": "Running",
       "restartCount": 0,
       "readyContainers": 1,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "grafana",
+          "ready": true,
+          "restartCount": 0,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 0.6, "memory": 7, "gpu": 0 },
+          "limits": { "cpu": 0.5, "memory": 8, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.15, "memory": 2.1, "gpu": 0 }
     },
     {
@@ -329,9 +413,21 @@
       "name": "auth-service-0",
       "node": "demo-app-pool-b",
       "status": "Running",
+      "reason": "Running",
       "restartCount": 0,
       "readyContainers": 1,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "auth",
+          "ready": true,
+          "restartCount": 0,
+          "state": "running",
+          "reason": "Running",
+          "requests": { "cpu": 0.25, "memory": 4, "gpu": 0 },
+          "limits": { "cpu": 0.5, "memory": 6, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.2, "memory": 2.2, "gpu": 0 }
     },
     {
@@ -341,9 +437,21 @@
       "name": "auth-service-1",
       "node": "demo-app-pool-b",
       "status": "Pending",
+      "reason": "Pending",
       "restartCount": 0,
       "readyContainers": 0,
       "totalContainers": 1,
+      "containers": [
+        {
+          "name": "auth",
+          "ready": false,
+          "restartCount": 0,
+          "state": "waiting",
+          "reason": "ContainerCreating",
+          "requests": { "cpu": 0.25, "memory": 4, "gpu": 0 },
+          "limits": { "cpu": 0.5, "memory": 6, "gpu": 0 }
+        }
+      ],
       "usage": { "cpu": 0.2, "memory": 2.3, "gpu": 0 }
     }
   ]

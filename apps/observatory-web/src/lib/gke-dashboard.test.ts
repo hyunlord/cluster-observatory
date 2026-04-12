@@ -41,9 +41,20 @@ describe("getGkeDashboardData", () => {
     expect(data.snapshot.freshness.label).toBeTruthy();
     expect(data.snapshot.collectorStatus).toBeTruthy();
     expect(Array.isArray(data.snapshot.collectionWarnings)).toBe(true);
+    expect(data.snapshot.collectorConfidence).toBeTruthy();
+    expect(Array.isArray(data.snapshot.missingSources)).toBe(true);
+    expect(Array.isArray(data.snapshot.issues)).toBe(true);
+    expect(data.efficiency.costSource).toBe("heuristic");
+    expect(data.efficiency.signals.length).toBeGreaterThan(0);
+    expect(data.workloads[0]?.rightsizingHint).toBeDefined();
+    expect(data.workloads[0]?.efficiencyConfidence).toBeDefined();
+    expect(data.workloads[0]?.idleAllocationEstimate).toBeDefined();
     expect(data.workloads[0]?.events).toBeDefined();
     expect(data.namespaces[0]?.alerts).toBeDefined();
     expect(data.namespaces[0]?.events).toBeDefined();
+    expect(data.namespaces[0]?.efficiency).toBeDefined();
+    expect(data.pods[0]?.reason).toBeDefined();
+    expect(Array.isArray(data.pods[0]?.containers)).toBe(true);
     expect(Object.keys(data)).not.toContain("retrospectives");
   });
 
@@ -63,6 +74,13 @@ describe("getGkeDashboardData", () => {
             source: "kubectl top snapshot",
             capturedAt: new Date().toISOString(),
             health: "Warning"
+          },
+          snapshot: {
+            collectorStatus: "complete",
+            collectionWarnings: [],
+            collectorConfidence: "high",
+            missingSources: [],
+            issues: []
           },
           usage: {
             cpu: { allocatable: 12.5, used: 6.25, unit: "vCPU" },
@@ -124,6 +142,9 @@ describe("getGkeDashboardData", () => {
     expect(data.snapshot.freshness.label).toBe("Fresh");
     expect(data.snapshot.collectorStatus).toBe("complete");
     expect(data.snapshot.collectionWarnings).toEqual([]);
+    expect(data.snapshot.collectorConfidence).toBe("high");
+    expect(data.snapshot.missingSources).toEqual([]);
+    expect(data.snapshot.issues).toEqual([]);
     expect(data.nodes[0]?.gpu).toBe("1 / 1");
     expect(data.namespaces[0]?.topWorkload).toBe("trainer-api");
     expect(data.namespaces[0]?.alerts).toEqual([]);
@@ -146,6 +167,9 @@ describe("getGkeDashboardData", () => {
       replicas: 3,
       efficiency: "Hot"
     });
+    expect(data.workloads[0]?.rightsizingHint).toBeDefined();
+    expect(data.namespaces[0]?.efficiency).toBeDefined();
+    expect(data.efficiency.costSource).toBe("heuristic");
     expect(data.workloads[0]?.events).toEqual([]);
   });
 
@@ -168,7 +192,10 @@ describe("getGkeDashboardData", () => {
           },
           snapshot: {
             collectorStatus: "complete",
-            collectionWarnings: []
+            collectionWarnings: [],
+            collectorConfidence: "high",
+            missingSources: [],
+            issues: []
           },
           usage: {
             cpu: { allocatable: 8, used: 1.5, unit: "vCPU" },
@@ -257,7 +284,10 @@ describe("getGkeDashboardData", () => {
           },
           snapshot: {
             collectorStatus: "complete",
-            collectionWarnings: []
+            collectionWarnings: [],
+            collectorConfidence: "high",
+            missingSources: [],
+            issues: []
           },
           usage: {
             cpu: { allocatable: 12, used: 6, unit: "vCPU" },
@@ -390,7 +420,10 @@ describe("getGkeDashboardData", () => {
           },
           snapshot: {
             collectorStatus: "complete",
-            collectionWarnings: []
+            collectionWarnings: [],
+            collectorConfidence: "high",
+            missingSources: [],
+            issues: []
           },
           usage: {
             cpu: { allocatable: 10, used: 1.5, unit: "vCPU" },
@@ -482,6 +515,8 @@ describe("getGkeDashboardData", () => {
     expect(view.selectedWorkload?.pods[0]?.status).toBe("Running");
     expect(view.selectedWorkload?.pods[0]?.restartCount).toBeGreaterThanOrEqual(1);
     expect(view.selectedWorkload?.pods[0]?.readyContainers).toBe(1);
+    expect(view.selectedWorkload?.pods[0]?.reason).toBeTruthy();
+    expect(view.selectedWorkload?.pods[0]?.containers.length).toBeGreaterThan(0);
   });
 
   it("builds a node detail view with hosted workloads, pod health, and hotspot summaries", async () => {

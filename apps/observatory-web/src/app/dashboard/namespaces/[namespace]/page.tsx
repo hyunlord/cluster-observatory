@@ -33,7 +33,7 @@ export default async function NamespaceDetailPage(props: NamespaceDetailPageProp
         ) : null}
       </header>
 
-      <NamespaceDetailPanel detail={detail} />
+      <NamespaceDetailPanel detail={detail} snapshot={data.snapshot} />
     </main>
   );
 }

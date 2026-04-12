@@ -227,6 +227,18 @@ export default async function DashboardPage(props: DashboardPageProps) {
               </strong>
               <p className="muted">Consecutive failures: {data.snapshot.batch.consecutiveFailures}</p>
             </div>
+            <div className="hero-side-block">
+              <span>Collector confidence</span>
+              <strong>{data.snapshot.collectorConfidence}</strong>
+              <p className="muted">{data.snapshot.collectorStatus} collector status</p>
+            </div>
+            <div className="hero-side-block">
+              <span>Missing sources</span>
+              <strong>
+                {data.snapshot.missingSources.length > 0 ? data.snapshot.missingSources.join(", ") : "None"}
+              </strong>
+              <p className="muted">{data.snapshot.trustNote}</p>
+            </div>
           </div>
           {data.snapshot.batch.recentError ? (
             <article className={`hero-status-card hero-status-card-${data.snapshot.batch.tone}`}>
@@ -242,6 +254,24 @@ export default async function DashboardPage(props: DashboardPageProps) {
               <p className="muted">{data.snapshot.collectionWarnings[0]}</p>
             </article>
           ) : null}
+          {data.snapshot.issues.length > 0 ? (
+            <article className={`hero-status-card hero-status-card-${data.snapshot.collectorConfidence === "low" ? "critical" : "warning"}`}>
+              <span>Collector confidence</span>
+              <strong>{data.snapshot.collectorConfidence}</strong>
+              <p className="muted">
+                {data.snapshot.issues[0]?.source}: {data.snapshot.issues[0]?.message}
+              </p>
+            </article>
+          ) : null}
+          <article className={`hero-status-card hero-status-card-${data.snapshot.collectorConfidence === "high" ? "healthy" : "warning"}`}>
+            <span>Affected areas</span>
+            <strong>{data.snapshot.affectedAreas.length > 0 ? data.snapshot.affectedAreas[0] : "Full coverage"}</strong>
+            <p className="muted">
+              {data.snapshot.affectedAreas.length > 0
+                ? data.snapshot.affectedAreas.slice(1, 3).join(" · ")
+                : "Overview, drill-down, and event timelines all have full collector support."}
+            </p>
+          </article>
           <section className="hero-focus">
             <div className="section-header section-header-compact">
               <div>
@@ -422,6 +452,33 @@ export default async function DashboardPage(props: DashboardPageProps) {
               </article>
             )}
           </section>
+        </div>
+      </section>
+
+      <section className="panel efficiency-strip">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Efficiency Signals</p>
+            <h2>Waste and rightsizing hints</h2>
+          </div>
+          <div className="hero-chip-row">
+            <span className="metric-chip">Cost source</span>
+            <span className="status-pill status-pill-warning">{data.efficiency.costSource}</span>
+            <span className="metric-chip">Heuristic only</span>
+          </div>
+        </div>
+        <p className="muted">{data.efficiency.note}</p>
+        <div className="hot-alerts-grid">
+          {data.efficiency.signals.map((signal) => (
+            <article className={`hot-alert-card hot-alert-card-${signal.tone}`} key={`${signal.title}-${signal.href}`}>
+              <span>{signal.title}</span>
+              <strong>{signal.value}</strong>
+              <p className="muted">{signal.detail}</p>
+              <Link className="hero-focus-link" href={signal.href}>
+                {signal.actionLabel}
+              </Link>
+            </article>
+          ))}
         </div>
       </section>
 

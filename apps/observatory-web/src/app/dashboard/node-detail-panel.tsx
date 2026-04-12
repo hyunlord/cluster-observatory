@@ -1,9 +1,11 @@
 import React from "react";
 import Link from "next/link";
-import type { NodeDetail } from "../../lib/gke-dashboard";
+import type { GkeDashboardData, NodeDetail } from "../../lib/gke-dashboard";
+import { SnapshotTrustPanel } from "./snapshot-trust-panel";
 
 interface NodeDetailPanelProps {
   detail?: NodeDetail;
+  snapshot?: GkeDashboardData["snapshot"];
 }
 
 function dashboardHref(detail: NodeDetail): string {
@@ -22,7 +24,7 @@ function namespaceHref(namespace: string): string {
   return `/dashboard/namespaces/${encodeURIComponent(namespace)}`;
 }
 
-export function NodeDetailPanel({ detail }: NodeDetailPanelProps) {
+export function NodeDetailPanel({ detail, snapshot }: NodeDetailPanelProps) {
   if (!detail) {
     return (
       <article className="panel side-panel drawer-panel drawer-panel-page">
@@ -109,6 +111,13 @@ export function NodeDetailPanel({ detail }: NodeDetailPanelProps) {
           </Link>
         </div>
       </div>
+
+      {snapshot ? (
+        <SnapshotTrustPanel
+          snapshot={snapshot}
+          description="Confidence and coverage signals for the data behind this node diagnosis"
+        />
+      ) : null}
 
       <div className="detail-section">
         <div className="detail-section-header">
@@ -269,7 +278,7 @@ export function NodeDetailPanel({ detail }: NodeDetailPanelProps) {
             <div>
               <strong>{detail.hotspotPod.name}</strong>
               <p className="muted">
-                {detail.hotspotPod.status} · {detail.hotspotPod.workloadName}
+                {detail.hotspotPod.reason} · {detail.hotspotPod.workloadName}
               </p>
               <p className="muted drawer-pod-subline">
                 {detail.hotspotPod.readyContainers}/{detail.hotspotPod.totalContainers} ready · {detail.hotspotPod.restartCount} restarts
@@ -331,10 +340,16 @@ export function NodeDetailPanel({ detail }: NodeDetailPanelProps) {
                     <div>
                       <strong>{pod.name}</strong>
                       <p className="muted">
-                        {pod.status} · {pod.workloadName}
+                        {pod.reason} · {pod.workloadName}
                       </p>
                       <p className="muted drawer-pod-subline">
                         {pod.readyContainers}/{pod.totalContainers} ready · {pod.restartCount} restarts
+                      </p>
+                      <p className="muted drawer-pod-subline">
+                        {(pod.containers.find((container) => !container.ready) ?? pod.containers[0])?.name ?? "container"} ·{" "}
+                        {(pod.containers.find((container) => !container.ready) ?? pod.containers[0])?.reason ??
+                          (pod.containers.find((container) => !container.ready) ?? pod.containers[0])?.state ??
+                          "unknown"}
                       </p>
                     </div>
                     <div className="drawer-pod-metrics">

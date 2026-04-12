@@ -24,9 +24,9 @@ The dashboard should follow four operating principles:
 - `Phase 2: Consumers and Capacity` — complete
 - `Phase 3: Drill-down Navigation` — complete
 - `Phase 4: Operations Workbench` — complete
-- `Phase 5: Time and History` — in progress
-- `Phase 6: Data Fidelity` — planned
-- `Phase 7: Cost and Efficiency` — planned
+- `Phase 5: Time and History` — complete
+- `Phase 6: Data Fidelity` — complete
+- `Phase 7: Cost and Efficiency` — in progress
 - `Phase 8: Product UX Refinement` — planned
 
 ## Reference Patterns
@@ -284,7 +284,7 @@ Success criteria:
 
 ### Phase 5: Time and History
 
-Status: in progress
+Status: complete
 
 Purpose:
 - add short-term trend visibility and change detection
@@ -300,7 +300,7 @@ Success criteria:
 
 ### Phase 6: Data Fidelity
 
-Status: planned
+Status: complete
 
 Purpose:
 - make collector output easier to trust and easier to diagnose when partial
@@ -311,25 +311,31 @@ Scope:
 - collector confidence signals
 - better error surfacing for missing or degraded sources
 
+Current progress:
+- collector outputs structured issues, missing source hints, and confidence levels
+- overview surfaces collector confidence and missing source summaries
+- workload detail now exposes container-level readiness, restart activity, and request/limit posture
+- node and namespace detail carry the same snapshot trust context as the overview
+
 Success criteria:
 - operators can distinguish healthy data from partial data and understand what is missing
 
 ### Phase 7: Cost and Efficiency
 
-Status: planned
+Status: in progress
 
 Purpose:
 - surface waste and allocation quality
 
 Scope:
-- OpenCost integration
-- workload and namespace cost allocation
-- idle resource cost
-- request-to-usage mismatch
-- rightsizing candidates
+- heuristic efficiency signals in the overview
+- namespace efficiency posture
+- workload rightsizing hints
+- workload-table tuning badges
+- OpenCost-ready data slots for future real cost integration
 
 Success criteria:
-- the dashboard helps with optimization, not only firefighting
+- the dashboard highlights waste and tuning candidates without presenting heuristic data as billing truth
 
 ### Phase 8: Product UX Refinement
 

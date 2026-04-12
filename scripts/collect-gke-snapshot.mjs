@@ -192,6 +192,113 @@ function getGpuLimitForPod(pod) {
   }, 0);
 }
 
+function getCpuRequestForContainer(container) {
+  return parseCpuQuantity(container?.resources?.requests?.cpu);
+}
+
+function getCpuLimitForContainer(container) {
+  return parseCpuQuantity(container?.resources?.limits?.cpu);
+}
+
+function getMemoryRequestForContainer(container) {
+  return parseMemoryToGiB(container?.resources?.requests?.memory);
+}
+
+function getMemoryLimitForContainer(container) {
+  return parseMemoryToGiB(container?.resources?.limits?.memory);
+}
+
+function getGpuRequestForContainer(container) {
+  return Number(container?.resources?.requests?.["nvidia.com/gpu"] ?? 0);
+}
+
+function getGpuLimitForContainer(container) {
+  return Number(container?.resources?.limits?.["nvidia.com/gpu"] ?? 0);
+}
+
+function getContainerState(status) {
+  if (status?.state?.waiting) {
+    return "waiting";
+  }
+
+  if (status?.state?.terminated) {
+    return "terminated";
+  }
+
+  if (status?.state?.running) {
+    return "running";
+  }
+
+  return "unknown";
+}
+
+function getContainerReason(status) {
+  return status?.state?.waiting?.reason || status?.state?.terminated?.reason || (status?.ready ? "Running" : undefined);
+}
+
+function inferIssueSource(label) {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("node metrics")) {
+    return "node-metrics";
+  }
+  if (normalized.includes("pod metrics")) {
+    return "pod-metrics";
+  }
+  if (normalized.includes("nodes")) {
+    return "nodes";
+  }
+  if (normalized.includes("pods")) {
+    return "pods";
+  }
+  if (normalized.includes("events")) {
+    return "events";
+  }
+  return label.toLowerCase().replaceAll(/\s+/g, "-");
+}
+
+function inferIssueSeverity(source) {
+  return source === "nodes" || source === "pods" ? "critical" : "warning";
+}
+
+function createCollectionIssue(label, message) {
+  const source = inferIssueSource(label);
+  return {
+    source,
+    severity: inferIssueSeverity(source),
+    message: `${label} unavailable`,
+    detail: message
+  };
+}
+
+function normalizeCollectionIssues(collectionWarnings = [], collectionIssues = []) {
+  const derivedIssues = collectionWarnings.map((warning) => {
+    const [label, ...detailParts] = warning.split(" unavailable: ");
+    return createCollectionIssue(label, detailParts.join(" unavailable: ") || warning);
+  });
+
+  const seen = new Set();
+  return [...collectionIssues, ...derivedIssues].filter((issue) => {
+    const key = `${issue.source}:${issue.message}:${issue.detail ?? ""}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function getCollectorConfidence(status, issues) {
+  if (status === "failed") {
+    return "low";
+  }
+
+  if (issues.length > 0) {
+    return "medium";
+  }
+
+  return "high";
+}
+
 function getCpuRequestForPod(pod) {
   return getPodContainers(pod).reduce((total, container) => {
     const requests = container?.resources?.requests ?? {};
@@ -621,6 +728,31 @@ function buildPods(pods, podMetrics) {
     const namespace = pod?.metadata?.namespace ?? "default";
     const metric = podMetricsByName.get(`${namespace}/${pod?.metadata?.name}`);
     const readiness = getPodReadyCounts(pod);
+    const containers = getPodContainers(pod).map((container, index) => {
+      const statuses = getContainerStatuses(pod);
+      const status =
+        statuses.find((entry) => entry?.name && entry.name === container?.name) ??
+        statuses[index];
+
+      return {
+        name: container?.name ?? status?.name ?? `container-${index}`,
+        ready: Boolean(status?.ready),
+        restartCount: Number(status?.restartCount ?? 0),
+        state: getContainerState(status),
+        reason: getContainerReason(status),
+        requests: {
+          cpu: round(getCpuRequestForContainer(container)),
+          memory: round(getMemoryRequestForContainer(container)),
+          gpu: round(getGpuRequestForContainer(container), 0)
+        },
+        limits: {
+          cpu: round(getCpuLimitForContainer(container)),
+          memory: round(getMemoryLimitForContainer(container)),
+          gpu: round(getGpuLimitForContainer(container), 0)
+        }
+      };
+    });
+    const reason = toPodStatus(pod);
 
     return {
       namespace,
@@ -628,10 +760,12 @@ function buildPods(pods, podMetrics) {
       workloadKind: normalizeWorkloadKind(pod),
       name: pod?.metadata?.name ?? "unknown-pod",
       node: pod?.spec?.nodeName ?? "unassigned",
-      status: toPodStatus(pod),
+      status: reason,
+      reason,
       restartCount: getPodRestartCount(pod),
       readyContainers: readiness.readyContainers,
       totalContainers: readiness.totalContainers,
+      containers,
       usage: {
         cpu: round(sumMetrics(metric?.containers ?? [], (container) => parseCpuQuantity(container?.usage?.cpu))),
         memory: round(
@@ -652,8 +786,11 @@ export function buildSnapshotFromKubectlData({
   pods,
   podMetrics,
   events,
-  collectionWarnings = /** @type {string[]} */ ([])
+  collectionWarnings = /** @type {string[]} */ ([]),
+  collectionIssues = /** @type {any[]} */ ([])
 }) {
+  const issues = normalizeCollectionIssues(collectionWarnings, collectionIssues);
+  const missingSources = [...new Set(issues.map((issue) => issue.source))];
   const cluster = inferClusterMetadata(context);
   const nodeUsage = buildNodeUsage(nodes, nodeMetrics, pods, events);
   const eventSignals = buildEventSignals(pods, events);
@@ -661,7 +798,13 @@ export function buildSnapshotFromKubectlData({
   const workloads = buildWorkloads(pods, podMetrics, eventSignals.workloadEvents);
   const podRows = buildPods(pods, podMetrics);
   const allReady = nodeUsage.every((node) => node.status === "Ready");
-  const collectorStatus = collectionWarnings.length > 0 ? "partial" : "complete";
+  const collectorStatus =
+    missingSources.includes("nodes") || missingSources.includes("pods")
+      ? "failed"
+      : issues.length > 0
+        ? "partial"
+        : "complete";
+  const collectorConfidence = getCollectorConfidence(collectorStatus, issues);
 
   return {
     cluster: {
@@ -669,11 +812,21 @@ export function buildSnapshotFromKubectlData({
       region: cluster.region,
       source,
       capturedAt,
-      health: collectorStatus === "partial" ? "Partial" : allReady ? "Stable" : "Degraded"
+      health:
+        collectorStatus === "failed"
+          ? "Unavailable"
+          : collectorStatus === "partial"
+            ? "Partial"
+            : allReady
+              ? "Stable"
+              : "Degraded"
     },
     snapshot: {
       collectorStatus,
-      collectionWarnings
+      collectionWarnings,
+      collectorConfidence,
+      missingSources,
+      issues
     },
     usage: {
       cpu: {
@@ -798,13 +951,15 @@ async function safeKubectlJson(label, args) {
   try {
     return {
       data: await kubectlJson(args),
-      warning: undefined
+      warning: undefined,
+      issue: undefined
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
       data: { items: [] },
-      warning: `${label} unavailable: ${message}`
+      warning: `${label} unavailable: ${message}`,
+      issue: createCollectionIssue(label, message)
     };
   }
 }
@@ -894,6 +1049,13 @@ async function main() {
     podMetricsResult.warning,
     eventsResult.warning
   ].filter(Boolean);
+  const collectionIssues = [
+    nodesResult.issue,
+    nodeMetricsResult.issue,
+    podsResult.issue,
+    podMetricsResult.issue,
+    eventsResult.issue
+  ].filter(Boolean);
 
   const snapshot = buildSnapshotFromKubectlData({
     context,
@@ -904,7 +1066,8 @@ async function main() {
     pods: podsResult.data,
     podMetrics: podMetricsResult.data,
     events: eventsResult.data,
-    collectionWarnings
+    collectionWarnings,
+    collectionIssues
   });
 
   await persistSnapshotArtifacts({

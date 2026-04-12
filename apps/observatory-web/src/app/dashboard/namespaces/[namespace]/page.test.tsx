@@ -21,7 +21,14 @@ describe("/dashboard/namespaces/[namespace]", () => {
     expect(html).toContain("auth-service");
     expect(html).toContain("demo-app-pool-b");
     expect(html).toContain("Restart hot pods");
+    expect(html).toContain("Efficiency posture");
+    expect(html).toContain("Idle allocation estimate");
+    expect(html).toContain("Over-requested workloads");
+    expect(html).toContain("Cost source");
     expect(html).toContain("Open top workload");
     expect(html).toContain("Open busiest node");
+    expect(html).toContain("Snapshot trust");
+    expect(html).toContain("High confidence");
+    expect(html).toContain("Full coverage");
   });
 });

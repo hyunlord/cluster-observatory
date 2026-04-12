@@ -35,6 +35,30 @@ export interface CapacityRow {
   limitPercentage: number;
 }
 
+export type CostSource = "heuristic" | "opencost";
+export type EfficiencyConfidence = "high" | "medium" | "low";
+export type RightsizingHint = "Reduce requests" | "Raise requests" | "Observe";
+
+export interface EfficiencyOverviewSignal {
+  title: string;
+  value: string;
+  detail: string;
+  tone: "healthy" | "warning" | "critical";
+  href: string;
+  actionLabel: string;
+}
+
+export interface NamespaceEfficiencySummary {
+  requestEfficiencyLabel: string;
+  idleAllocationEstimate: string;
+  overRequestedWorkloads: number;
+  rightsizingCandidate: string;
+  efficiencyConfidence: EfficiencyConfidence;
+  costSource: CostSource;
+  estimatedMonthlyCost: number | null;
+  actualMonthlyCost: number | null;
+}
+
 export interface WorkloadRow {
   id: string;
   namespace: string;
@@ -52,6 +76,34 @@ export interface WorkloadRow {
   efficiency: "Healthy" | "Watch" | "Hot";
   pressurePercentage: number;
   events: NodeEventRow[];
+  efficiencyScore: number;
+  efficiencyConfidence: EfficiencyConfidence;
+  overRequested: boolean;
+  underRequestRisk: boolean;
+  rightsizingHint: RightsizingHint;
+  idleAllocationEstimate: string;
+  costSource: CostSource;
+  estimatedMonthlyCost: number | null;
+  actualMonthlyCost: number | null;
+}
+
+export interface CollectionIssue {
+  source: string;
+  severity: "info" | "warning" | "critical";
+  message: string;
+  detail?: string;
+}
+
+export interface PodContainerRow {
+  name: string;
+  ready: boolean;
+  restartCount: number;
+  state: string;
+  reason?: string;
+  cpuRequest: string;
+  cpuLimit: string;
+  memoryRequest: string;
+  memoryLimit: string;
 }
 
 export interface PodRow {
@@ -63,12 +115,14 @@ export interface PodRow {
   name: string;
   node: string;
   status: string;
+  reason: string;
   restartCount: number;
   readyContainers: number;
   totalContainers: number;
   cpuUsage: string;
   memoryUsage: string;
   gpuUsage: string;
+  containers: PodContainerRow[];
 }
 
 export interface WorkloadAlert {
@@ -228,6 +282,7 @@ export interface NamespaceUsageRow {
   pressurePercentage: number;
   alerts: WorkloadAlert[];
   events: NodeEventRow[];
+  efficiency: NamespaceEfficiencySummary;
 }
 
 interface MetricSnapshot {
@@ -262,9 +317,19 @@ interface PodSnapshot {
   name: string;
   node: string;
   status: string;
+  reason?: string;
   restartCount?: number;
   readyContainers?: number;
   totalContainers?: number;
+  containers?: {
+    name: string;
+    ready: boolean;
+    restartCount: number;
+    state: string;
+    reason?: string;
+    requests: WorkloadMetricSnapshot;
+    limits: WorkloadMetricSnapshot;
+  }[];
   usage: WorkloadMetricSnapshot;
 }
 
@@ -300,6 +365,9 @@ interface GkeSnapshotFile {
   snapshot?: {
     collectorStatus?: "complete" | "partial" | "failed";
     collectionWarnings?: string[];
+    collectorConfidence?: "high" | "medium" | "low";
+    missingSources?: string[];
+    issues?: CollectionIssue[];
   };
   usage: {
     cpu: MetricSnapshot;
@@ -365,6 +433,11 @@ export interface GkeDashboardData {
     health: string;
     collectorStatus: "complete" | "partial" | "failed";
     collectionWarnings: string[];
+    collectorConfidence: "high" | "medium" | "low";
+    missingSources: string[];
+    issues: CollectionIssue[];
+    affectedAreas: string[];
+    trustNote: string;
     batch: {
       status: "manual" | "idle" | "running" | "healthy" | "failing" | "stopped" | "completed";
       label: string;
@@ -390,8 +463,27 @@ export interface GkeDashboardData {
       recentSnapshots: HistorySnapshotCard[];
     };
   };
+  efficiency: {
+    costSource: CostSource;
+    signals: EfficiencyOverviewSignal[];
+    note: string;
+  };
   nodes: NodeUsageRow[];
   namespaces: NamespaceUsageRow[];
+}
+
+interface WorkloadEfficiencyAnalytics {
+  efficiencyScore: number;
+  efficiencyConfidence: EfficiencyConfidence;
+  overRequested: boolean;
+  underRequestRisk: boolean;
+  rightsizingHint: RightsizingHint;
+  idleCpu: number;
+  idleMemory: number;
+  idleAllocationEstimate: string;
+  costSource: CostSource;
+  estimatedMonthlyCost: number | null;
+  actualMonthlyCost: number | null;
 }
 
 function getMetricPercentage(metric: MetricSnapshot): number {
@@ -424,6 +516,163 @@ function formatNamespaceMetric(value: number, unit: string): string {
   }
 
   return `${value.toFixed(0)} ${unit}`;
+}
+
+function defaultCollectorConfidence(
+  collectorStatus: GkeDashboardData["snapshot"]["collectorStatus"],
+  collectionWarnings: string[]
+): GkeDashboardData["snapshot"]["collectorConfidence"] {
+  if (collectorStatus === "failed") {
+    return "low";
+  }
+
+  if (collectorStatus === "partial" || collectionWarnings.length > 0) {
+    return "medium";
+  }
+
+  return "high";
+}
+
+function deriveMissingSources(
+  warnings: string[],
+  issues: CollectionIssue[]
+): string[] {
+  const fromWarnings = warnings.flatMap((warning) => {
+    const normalized = warning.toLowerCase();
+    if (normalized.includes("node metrics")) {
+      return ["node-metrics"];
+    }
+    if (normalized.includes("pod metrics")) {
+      return ["pod-metrics"];
+    }
+    if (normalized.includes("nodes")) {
+      return ["nodes"];
+    }
+    if (normalized.includes("pods")) {
+      return ["pods"];
+    }
+    if (normalized.includes("events")) {
+      return ["events"];
+    }
+    return [];
+  });
+
+  return [...new Set([...fromWarnings, ...issues.map((issue) => issue.source)].filter(Boolean))];
+}
+
+function describeAffectedAreas(missingSources: string[]): string[] {
+  const mappings: Record<string, string[]> = {
+    nodes: ["node inventory", "node condition diagnostics", "node placement accuracy"],
+    "node-metrics": ["cluster pressure", "node saturation", "capacity comparisons"],
+    pods: ["pod inventory", "workload drill-down", "restart attribution"],
+    "pod-metrics": ["pod CPU and memory usage", "consumer rankings", "workload pressure math"],
+    events: ["warning timelines", "hot alerts", "recent namespace and node events"]
+  };
+
+  const areas = missingSources.flatMap((source) => mappings[source] ?? [`${source} dependent diagnostics`]);
+  return [...new Set(areas)];
+}
+
+function describeTrustNote(
+  confidence: GkeDashboardData["snapshot"]["collectorConfidence"],
+  missingSources: string[],
+  issues: CollectionIssue[]
+): string {
+  if (confidence === "high") {
+    return "All core collector sources are available for this snapshot.";
+  }
+
+  if (issues.length === 0 && missingSources.length === 0) {
+    return "Collector confidence is reduced even though no explicit issue payload was provided.";
+  }
+
+  return `Collector coverage is reduced by ${missingSources.length || issues.length} source issue${missingSources.length === 1 || issues.length === 1 ? "" : "s"}.`;
+}
+
+function formatContainerMetric(value: number, unit: "vCPU" | "GiB" | "GPU") {
+  if (unit === "GPU") {
+    return `${value.toFixed(0)} ${unit}`;
+  }
+
+  return unit === "GiB" ? `${value.toFixed(1)} ${unit}` : `${value.toFixed(2)} ${unit}`;
+}
+
+function getEfficiencyConfidenceLevel(
+  snapshotConfidence: EfficiencyConfidence,
+  requestCpu: number,
+  requestMemory: number
+): EfficiencyConfidence {
+  if (snapshotConfidence === "low") {
+    return "low";
+  }
+
+  if (requestCpu <= 0 && requestMemory <= 0) {
+    return "low";
+  }
+
+  if (snapshotConfidence === "medium" || requestCpu <= 0 || requestMemory <= 0) {
+    return "medium";
+  }
+
+  return "high";
+}
+
+function formatIdleEstimate(cpu: number, memory: number) {
+  return `CPU ${formatMetricScalar(Math.max(cpu, 0), "vCPU")} · Memory ${formatMetricScalar(Math.max(memory, 0), "GiB", 1)}`;
+}
+
+function getRequestRatio(usage: number, request: number) {
+  return request > 0 ? usage / request : null;
+}
+
+function getEfficiencyScore(
+  cpuRatio: number | null,
+  memoryRatio: number | null,
+  overRequested: boolean,
+  underRequestRisk: boolean
+) {
+  const ratios = [cpuRatio, memoryRatio].filter((value): value is number => value !== null);
+  if (ratios.length === 0) {
+    return 50;
+  }
+
+  const baseline = Math.round(
+    ratios.reduce((sum, ratio) => sum + Math.max(0, 100 - Math.abs(65 - Math.round(ratio * 100))), 0) / ratios.length
+  );
+
+  if (overRequested) {
+    return Math.max(20, baseline - 20);
+  }
+
+  if (underRequestRisk) {
+    return Math.max(25, baseline - 25);
+  }
+
+  return Math.min(95, baseline);
+}
+
+function getRightsizingHint(
+  overRequested: boolean,
+  underRequestRisk: boolean,
+  confidence: EfficiencyConfidence
+): RightsizingHint {
+  if (confidence === "low") {
+    return "Observe";
+  }
+
+  if (underRequestRisk) {
+    return "Raise requests";
+  }
+
+  if (overRequested) {
+    return "Reduce requests";
+  }
+
+  return "Observe";
+}
+
+function getIdleWeight(cpuIdle: number, memoryIdle: number) {
+  return cpuIdle * 10 + memoryIdle;
 }
 
 function getPressureTone(percentage: number): "healthy" | "warning" | "critical" {
@@ -748,6 +997,41 @@ function createPressureCards(snapshot: GkeSnapshotFile): PressureCard[] {
   ];
 }
 
+function createWorkloadEfficiencyAnalytics(
+  workload: WorkloadSnapshot,
+  snapshotConfidence: EfficiencyConfidence
+): WorkloadEfficiencyAnalytics {
+  const cpuRatio = getRequestRatio(workload.usage.cpu, workload.requests.cpu);
+  const memoryRatio = getRequestRatio(workload.usage.memory, workload.requests.memory);
+  const overRequested =
+    (cpuRatio !== null && cpuRatio < 0.35) ||
+    (memoryRatio !== null && memoryRatio < 0.4);
+  const underRequestRisk =
+    (cpuRatio !== null && cpuRatio > 0.85) ||
+    (memoryRatio !== null && memoryRatio > 0.9);
+  const efficiencyConfidence = getEfficiencyConfidenceLevel(
+    snapshotConfidence,
+    workload.requests.cpu,
+    workload.requests.memory
+  );
+  const idleCpu = Math.max(workload.requests.cpu - workload.usage.cpu, 0);
+  const idleMemory = Math.max(workload.requests.memory - workload.usage.memory, 0);
+
+  return {
+    efficiencyScore: getEfficiencyScore(cpuRatio, memoryRatio, overRequested, underRequestRisk),
+    efficiencyConfidence,
+    overRequested,
+    underRequestRisk,
+    rightsizingHint: getRightsizingHint(overRequested, underRequestRisk, efficiencyConfidence),
+    idleCpu,
+    idleMemory,
+    idleAllocationEstimate: formatIdleEstimate(idleCpu, idleMemory),
+    costSource: "heuristic",
+    estimatedMonthlyCost: null,
+    actualMonthlyCost: null
+  };
+}
+
 function mapNodes(snapshot: GkeSnapshotFile): NodeUsageRow[] {
   const workloads = snapshot.workloads ?? [];
 
@@ -772,24 +1056,6 @@ function mapNodes(snapshot: GkeSnapshotFile): NodeUsageRow[] {
       events: node.events ?? []
     };
   });
-}
-
-function mapNamespaces(snapshot: GkeSnapshotFile): NamespaceUsageRow[] {
-  return snapshot.namespaces
-    .map((namespace) => ({
-      name: namespace.name,
-      cpu: formatNamespaceMetric(namespace.cpuUsed, "cores"),
-      memory: formatNamespaceMetric(namespace.memoryUsed, "GiB"),
-      gpu: formatNamespaceMetric(namespace.gpuUsed, "GPU"),
-      topWorkload: namespace.topWorkload,
-      alerts: namespace.alerts ?? [],
-      events: namespace.events ?? [],
-      pressurePercentage: Math.min(
-        100,
-        Math.round(Math.max(namespace.cpuUsed * 18, namespace.memoryUsed * 3.4, namespace.gpuUsed > 0 ? 100 : 0))
-      )
-    }))
-    .sort((left, right) => right.pressurePercentage - left.pressurePercentage);
 }
 
 function getWorkloads(snapshot: GkeSnapshotFile): WorkloadSnapshot[] {
@@ -899,7 +1165,10 @@ function getEfficiencyLabel(workload: WorkloadSnapshot): WorkloadRow["efficiency
   return "Healthy";
 }
 
-function createWorkloadRows(snapshot: GkeSnapshotFile): WorkloadRow[] {
+function createWorkloadRows(
+  snapshot: GkeSnapshotFile,
+  snapshotConfidence: EfficiencyConfidence
+): WorkloadRow[] {
   return getWorkloads(snapshot)
     .map((workload) => {
       const pressurePercentage = Math.max(
@@ -907,6 +1176,7 @@ function createWorkloadRows(snapshot: GkeSnapshotFile): WorkloadRow[] {
         getRatioPercentage(workload.usage.memory, Math.max(workload.requests.memory, 0.01)),
         workload.usage.gpu > 0 ? 100 : 0
       );
+      const analytics = createWorkloadEfficiencyAnalytics(workload, snapshotConfidence);
 
       return {
         id: `${workload.namespace}/${workload.name}`,
@@ -924,10 +1194,178 @@ function createWorkloadRows(snapshot: GkeSnapshotFile): WorkloadRow[] {
         memoryLimits: formatMetricScalar(workload.limits.memory, "GiB", 1),
         efficiency: getEfficiencyLabel(workload),
         pressurePercentage,
-        events: workload.events ?? []
+        events: workload.events ?? [],
+        efficiencyScore: analytics.efficiencyScore,
+        efficiencyConfidence: analytics.efficiencyConfidence,
+        overRequested: analytics.overRequested,
+        underRequestRisk: analytics.underRequestRisk,
+        rightsizingHint: analytics.rightsizingHint,
+        idleAllocationEstimate: analytics.idleAllocationEstimate,
+        costSource: analytics.costSource,
+        estimatedMonthlyCost: analytics.estimatedMonthlyCost,
+        actualMonthlyCost: analytics.actualMonthlyCost
       };
     })
     .sort((left, right) => right.pressurePercentage - left.pressurePercentage);
+}
+
+function createNamespaceEfficiencySummary(
+  workloadRows: WorkloadRow[],
+  snapshotConfidence: EfficiencyConfidence
+): NamespaceEfficiencySummary {
+  const overRequestedWorkloads = workloadRows.filter((workload) => workload.overRequested).length;
+  const idleCpu = workloadRows.reduce((sum, workload) => {
+    const match = workload.idleAllocationEstimate.match(/CPU ([\d.]+)/);
+    return sum + Number(match?.[1] ?? 0);
+  }, 0);
+  const idleMemory = workloadRows.reduce((sum, workload) => {
+    const match = workload.idleAllocationEstimate.match(/Memory ([\d.]+)/);
+    return sum + Number(match?.[1] ?? 0);
+  }, 0);
+  const cpuRatios = workloadRows
+    .map((workload) => {
+      const usage = Number(workload.cpuUsage.match(/[\d.]+/)?.[0] ?? 0);
+      const request = Number(workload.cpuRequests.match(/[\d.]+/)?.[0] ?? 0);
+      return request > 0 ? Math.round((usage / request) * 100) : null;
+    })
+    .filter((value): value is number => value !== null);
+  const memoryRatios = workloadRows
+    .map((workload) => {
+      const usage = Number(workload.memoryUsage.match(/[\d.]+/)?.[0] ?? 0);
+      const request = Number(workload.memoryRequests.match(/[\d.]+/)?.[0] ?? 0);
+      return request > 0 ? Math.round((usage / request) * 100) : null;
+    })
+    .filter((value): value is number => value !== null);
+  const averageCpuRatio =
+    cpuRatios.length > 0 ? Math.round(cpuRatios.reduce((sum, value) => sum + value, 0) / cpuRatios.length) : 0;
+  const averageMemoryRatio =
+    memoryRatios.length > 0
+      ? Math.round(memoryRatios.reduce((sum, value) => sum + value, 0) / memoryRatios.length)
+      : 0;
+  const rightsizingCandidate =
+    workloadRows.find((workload) => workload.rightsizingHint !== "Observe")?.name ?? "Observe current footprint";
+
+  return {
+    requestEfficiencyLabel: `CPU ${averageCpuRatio}% · Memory ${averageMemoryRatio}%`,
+    idleAllocationEstimate: formatIdleEstimate(idleCpu, idleMemory),
+    overRequestedWorkloads,
+    rightsizingCandidate,
+    efficiencyConfidence:
+      snapshotConfidence === "low" || workloadRows.some((workload) => workload.efficiencyConfidence === "low")
+        ? "low"
+        : snapshotConfidence === "medium" || workloadRows.some((workload) => workload.efficiencyConfidence === "medium")
+          ? "medium"
+          : "high",
+    costSource: "heuristic",
+    estimatedMonthlyCost: null,
+    actualMonthlyCost: null
+  };
+}
+
+function mapNamespaces(
+  snapshot: GkeSnapshotFile,
+  workloadRows: WorkloadRow[],
+  snapshotConfidence: EfficiencyConfidence
+): NamespaceUsageRow[] {
+  return snapshot.namespaces
+    .map((namespace) => {
+      const namespaceWorkloads = workloadRows.filter((workload) => workload.namespace === namespace.name);
+      return {
+        name: namespace.name,
+        cpu: formatNamespaceMetric(namespace.cpuUsed, "cores"),
+        memory: formatNamespaceMetric(namespace.memoryUsed, "GiB"),
+        gpu: formatNamespaceMetric(namespace.gpuUsed, "GPU"),
+        topWorkload: namespace.topWorkload,
+        alerts: namespace.alerts ?? [],
+        events: namespace.events ?? [],
+        efficiency: createNamespaceEfficiencySummary(namespaceWorkloads, snapshotConfidence),
+        pressurePercentage: Math.min(
+          100,
+          Math.round(Math.max(namespace.cpuUsed * 18, namespace.memoryUsed * 3.4, namespace.gpuUsed > 0 ? 100 : 0))
+        )
+      };
+    })
+    .sort((left, right) => right.pressurePercentage - left.pressurePercentage);
+}
+
+function createEfficiencyOverview(
+  workloads: WorkloadRow[],
+  namespaces: NamespaceUsageRow[]
+): GkeDashboardData["efficiency"] {
+  const mostOverRequested =
+    [...workloads]
+      .filter((workload) => workload.overRequested)
+      .sort((left, right) => {
+        const leftWeight = getIdleWeight(
+          Number(left.idleAllocationEstimate.match(/CPU ([\d.]+)/)?.[1] ?? 0),
+          Number(left.idleAllocationEstimate.match(/Memory ([\d.]+)/)?.[1] ?? 0)
+        );
+        const rightWeight = getIdleWeight(
+          Number(right.idleAllocationEstimate.match(/CPU ([\d.]+)/)?.[1] ?? 0),
+          Number(right.idleAllocationEstimate.match(/Memory ([\d.]+)/)?.[1] ?? 0)
+        );
+        return rightWeight - leftWeight;
+      })[0] ?? workloads[0];
+  const idleNamespace =
+    [...namespaces].sort((left, right) => {
+      const leftWeight = getIdleWeight(
+        Number(left.efficiency.idleAllocationEstimate.match(/CPU ([\d.]+)/)?.[1] ?? 0),
+        Number(left.efficiency.idleAllocationEstimate.match(/Memory ([\d.]+)/)?.[1] ?? 0)
+      );
+      const rightWeight = getIdleWeight(
+        Number(right.efficiency.idleAllocationEstimate.match(/CPU ([\d.]+)/)?.[1] ?? 0),
+        Number(right.efficiency.idleAllocationEstimate.match(/Memory ([\d.]+)/)?.[1] ?? 0)
+      );
+      return rightWeight - leftWeight;
+    })[0] ?? namespaces[0];
+  const rightsizingCandidate =
+    workloads.find((workload) => workload.rightsizingHint !== "Observe") ?? workloads[0];
+
+  const signals: EfficiencyOverviewSignal[] = [];
+
+  if (mostOverRequested) {
+    signals.push({
+      title: "Most over-requested workload",
+      value: `${mostOverRequested.namespace}/${mostOverRequested.name}`,
+      detail: `${mostOverRequested.idleAllocationEstimate} idle allocation estimated`,
+      tone: mostOverRequested.overRequested ? "warning" : "healthy",
+      href: `/dashboard/workloads/${encodeURIComponent(mostOverRequested.namespace)}/${encodeURIComponent(mostOverRequested.name)}`,
+      actionLabel: "Open workload"
+    });
+  }
+
+  if (idleNamespace) {
+    signals.push({
+      title: "Highest idle allocation namespace",
+      value: idleNamespace.name,
+      detail: idleNamespace.efficiency.idleAllocationEstimate,
+      tone: idleNamespace.efficiency.overRequestedWorkloads > 0 ? "warning" : "healthy",
+      href: `/dashboard/namespaces/${encodeURIComponent(idleNamespace.name)}`,
+      actionLabel: "Open namespace"
+    });
+  }
+
+  if (rightsizingCandidate) {
+    signals.push({
+      title: "Top rightsizing candidate",
+      value: rightsizingCandidate.rightsizingHint,
+      detail: `${rightsizingCandidate.name} · ${rightsizingCandidate.efficiencyConfidence} confidence`,
+      tone:
+        rightsizingCandidate.rightsizingHint === "Raise requests"
+          ? "critical"
+          : rightsizingCandidate.rightsizingHint === "Reduce requests"
+            ? "warning"
+            : "healthy",
+      href: `/dashboard/workloads/${encodeURIComponent(rightsizingCandidate.namespace)}/${encodeURIComponent(rightsizingCandidate.name)}`,
+      actionLabel: "Review workload"
+    });
+  }
+
+  return {
+    costSource: "heuristic",
+    signals,
+    note: "Heuristic only. These signals highlight likely waste and headroom issues, not billing data."
+  };
 }
 
 function createPodRows(snapshot: GkeSnapshotFile): PodRow[] {
@@ -941,12 +1379,37 @@ function createPodRows(snapshot: GkeSnapshotFile): PodRow[] {
       name: pod.name,
       node: pod.node,
       status: pod.status,
+      reason: pod.reason ?? pod.status,
       restartCount: pod.restartCount ?? 0,
       readyContainers: pod.readyContainers ?? 1,
       totalContainers: pod.totalContainers ?? 1,
       cpuUsage: formatMetricScalar(pod.usage.cpu, "vCPU"),
       memoryUsage: formatMetricScalar(pod.usage.memory, "GiB", 1),
-      gpuUsage: formatMetricScalar(pod.usage.gpu, "GPU", 0)
+      gpuUsage: formatMetricScalar(pod.usage.gpu, "GPU", 0),
+      containers:
+        pod.containers?.map((container) => ({
+          name: container.name,
+          ready: container.ready,
+          restartCount: container.restartCount,
+          state: container.state,
+          reason: container.reason,
+          cpuRequest: formatContainerMetric(container.requests.cpu, "vCPU"),
+          cpuLimit: formatContainerMetric(container.limits.cpu, "vCPU"),
+          memoryRequest: formatContainerMetric(container.requests.memory, "GiB"),
+          memoryLimit: formatContainerMetric(container.limits.memory, "GiB")
+        })) ?? [
+          {
+            name: "main",
+            ready: pod.status === "Running",
+            restartCount: pod.restartCount ?? 0,
+            state: pod.status === "Running" ? "running" : "waiting",
+            reason: pod.reason ?? pod.status,
+            cpuRequest: "0.00 vCPU",
+            cpuLimit: "0.00 vCPU",
+            memoryRequest: "0.0 GiB",
+            memoryLimit: "0.0 GiB"
+          }
+        ]
     }));
   }
 
@@ -961,12 +1424,26 @@ function createPodRows(snapshot: GkeSnapshotFile): PodRow[] {
       name: `${workload.name}-${index}`,
       node: workload.node,
       status: "Running" as const,
+      reason: "Running",
       restartCount: 0,
       readyContainers: 1,
       totalContainers: 1,
       cpuUsage: formatMetricScalar(workload.usage.cpu / replicas, "vCPU"),
       memoryUsage: formatMetricScalar(workload.usage.memory / replicas, "GiB", 1),
-      gpuUsage: formatMetricScalar(workload.usage.gpu / replicas, "GPU", 0)
+      gpuUsage: formatMetricScalar(workload.usage.gpu / replicas, "GPU", 0),
+      containers: [
+        {
+          name: "main",
+          ready: true,
+          restartCount: 0,
+          state: "running",
+          reason: "Running",
+          cpuRequest: formatMetricScalar(workload.requests.cpu / replicas, "vCPU"),
+          cpuLimit: formatMetricScalar(workload.limits.cpu / replicas, "vCPU"),
+          memoryRequest: formatMetricScalar(workload.requests.memory / replicas, "GiB", 1),
+          memoryLimit: formatMetricScalar(workload.limits.memory / replicas, "GiB", 1)
+        }
+      ]
     }));
   });
 }
@@ -1192,8 +1669,17 @@ export async function getGkeDashboardData(workspaceRoot: string): Promise<GkeDas
   const snapshotResult = await readSnapshot(workspaceRoot);
   const snapshot = snapshotResult.snapshot;
   const collectorStatus = snapshot.snapshot?.collectorStatus ?? "complete";
+  const collectionWarnings = snapshot.snapshot?.collectionWarnings ?? [];
+  const issues = snapshot.snapshot?.issues ?? [];
+  const missingSources = snapshot.snapshot?.missingSources ?? deriveMissingSources(collectionWarnings, issues);
+  const collectorConfidence =
+    snapshot.snapshot?.collectorConfidence ?? defaultCollectorConfidence(collectorStatus, collectionWarnings);
+  const affectedAreas = describeAffectedAreas(missingSources);
+  const trustNote = describeTrustNote(collectorConfidence, missingSources, issues);
   const batch = await readBatchStatus(workspaceRoot, snapshotResult.snapshotPath, collectorStatus);
   const history = await readHistoryIndex(workspaceRoot, snapshotResult.snapshotPath);
+  const workloads = createWorkloadRows(snapshot, collectorConfidence);
+  const namespaces = mapNamespaces(snapshot, workloads, collectorConfidence);
 
   return {
     cluster: {
@@ -1204,20 +1690,25 @@ export async function getGkeDashboardData(workspaceRoot: string): Promise<GkeDas
     pressureCards: createPressureCards(snapshot),
     topConsumers: createTopConsumers(snapshot),
     capacityRows: createCapacityRows(snapshot),
-    workloads: createWorkloadRows(snapshot),
+    workloads,
     pods: createPodRows(snapshot),
     snapshot: {
       source: snapshot.cluster.source,
       capturedAt: snapshot.cluster.capturedAt,
       health: snapshot.cluster.health,
       collectorStatus,
-      collectionWarnings: snapshot.snapshot?.collectionWarnings ?? [],
+      collectionWarnings,
+      collectorConfidence,
+      missingSources,
+      issues,
+      affectedAreas,
+      trustNote,
       batch,
-      freshness: describeFreshness(snapshot.cluster.capturedAt)
-      ,
+      freshness: describeFreshness(snapshot.cluster.capturedAt),
       history
     },
+    efficiency: createEfficiencyOverview(workloads, namespaces),
     nodes: mapNodes(snapshot),
-    namespaces: mapNamespaces(snapshot)
+    namespaces
   };
 }

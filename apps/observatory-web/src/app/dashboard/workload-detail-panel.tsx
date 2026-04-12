@@ -1,10 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import type { WorkloadDetail } from "../../lib/gke-dashboard";
+import type { GkeDashboardData, WorkloadDetail } from "../../lib/gke-dashboard";
+import { SnapshotTrustPanel } from "./snapshot-trust-panel";
 
 interface WorkloadDetailPanelProps {
   detail?: WorkloadDetail;
   mode?: "drawer" | "page";
+  snapshot?: GkeDashboardData["snapshot"];
 }
 
 function workloadHref(detail: WorkloadDetail): string {
@@ -24,7 +26,7 @@ function namespaceHref(detail: WorkloadDetail): string {
   return `/dashboard/namespaces/${encodeURIComponent(detail.workload.namespace)}`;
 }
 
-export function WorkloadDetailPanel({ detail, mode = "drawer" }: WorkloadDetailPanelProps) {
+export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: WorkloadDetailPanelProps) {
   if (!detail) {
     return (
       <article className="panel side-panel drawer-panel">
@@ -110,6 +112,38 @@ export function WorkloadDetailPanel({ detail, mode = "drawer" }: WorkloadDetailP
           <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
             Focus workload on dashboard
           </Link>
+        </div>
+      </div>
+
+      {snapshot ? (
+        <SnapshotTrustPanel
+          snapshot={snapshot}
+          description="Container and pod diagnosis should always be read with collector coverage in mind"
+        />
+      ) : null}
+
+      <div className="detail-section">
+        <div className="detail-section-header">
+          <h3>Rightsizing hint</h3>
+          <small className="muted">Estimated efficiency signal, not billing data.</small>
+        </div>
+        <div className="side-kpi-list side-kpi-list-compact">
+          <div className="side-kpi">
+            <span>Recommendation</span>
+            <strong>{detail.workload.rightsizingHint}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Confidence</span>
+            <strong>{detail.workload.efficiencyConfidence}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Idle allocation</span>
+            <strong>{detail.workload.idleAllocationEstimate}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Cost source</span>
+            <strong>{detail.workload.costSource}</strong>
+          </div>
         </div>
       </div>
 
@@ -227,6 +261,53 @@ export function WorkloadDetailPanel({ detail, mode = "drawer" }: WorkloadDetailP
           </div>
         </div>
       ) : null}
+
+      <div className="detail-section">
+        <div className="detail-section-header">
+          <h3>Container health</h3>
+          <small className="muted">Container-level readiness, restart activity, and request posture for each pod</small>
+        </div>
+        <div className="pod-group-list">
+          {detail.pods.map((pod) => (
+            <div className="pod-group-card" key={`${pod.id}-containers`}>
+              <div className="detail-section-header">
+                <div>
+                  <h3>{pod.name}</h3>
+                  <small className="muted">
+                    {pod.reason} · {pod.restartCount} restarts
+                  </small>
+                </div>
+                <span
+                  className={`status-pill status-pill-${pod.readyContainers >= pod.totalContainers && pod.status === "Running" ? "healthy" : "warning"}`}
+                >
+                  {pod.readyContainers}/{pod.totalContainers} ready
+                </span>
+              </div>
+              <div className="drawer-pod-list">
+                {pod.containers.map((container) => (
+                  <div className="drawer-pod-row" key={`${pod.id}-${container.name}`}>
+                    <div>
+                      <strong>{container.name}</strong>
+                      <p className="muted">
+                        {container.reason ?? container.state} · {container.restartCount} restarts
+                      </p>
+                      <p className="muted drawer-pod-subline">
+                        Req {container.cpuRequest} / {container.memoryRequest} · Lim {container.cpuLimit} / {container.memoryLimit}
+                      </p>
+                    </div>
+                    <div className="drawer-pod-metrics">
+                      <span className={`status-pill status-pill-${container.ready ? "healthy" : "warning"}`}>
+                        {container.ready ? "Ready" : "Attention"}
+                      </span>
+                      <span>{container.state}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="detail-section">
         <div className="detail-section-header">

@@ -207,6 +207,9 @@ describe("collect-gke-snapshot", () => {
     expect(snapshot.cluster.region).toBe("demo-region");
     expect(snapshot.snapshot.collectorStatus).toBe("complete");
     expect(snapshot.snapshot.collectionWarnings).toEqual([]);
+    expect(snapshot.snapshot.collectorConfidence).toBe("high");
+    expect(snapshot.snapshot.missingSources).toEqual([]);
+    expect(snapshot.snapshot.issues).toEqual([]);
     expect(snapshot.usage.cpu.allocatable).toBe(12);
     expect(snapshot.usage.cpu.used).toBe(2);
     expect(snapshot.usage.memory.allocatable).toBe(48);
@@ -256,9 +259,23 @@ describe("collect-gke-snapshot", () => {
       name: "grafana-0",
       workloadName: "monitoring-ui",
       status: "CrashLoopBackOff",
+      reason: "CrashLoopBackOff",
       restartCount: 4,
       readyContainers: 1,
-      totalContainers: 3
+      totalContainers: 3,
+      containers: expect.arrayContaining([
+        expect.objectContaining({
+          name: "container-0",
+          ready: true,
+          restartCount: 1
+        }),
+        expect.objectContaining({
+          name: "container-1",
+          ready: false,
+          restartCount: 3,
+          reason: "CrashLoopBackOff"
+        })
+      ])
     });
   });
 
@@ -277,6 +294,16 @@ describe("collect-gke-snapshot", () => {
 
     expect(snapshot.snapshot.collectorStatus).toBe("partial");
     expect(snapshot.snapshot.collectionWarnings).toEqual(["events source unavailable"]);
+    expect(snapshot.snapshot.collectorConfidence).toBe("medium");
+    expect(snapshot.snapshot.missingSources).toEqual(["events"]);
+    expect(snapshot.snapshot.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "events",
+          severity: "warning"
+        })
+      ])
+    );
   });
 
   it("builds a compact history entry and rolling history index from snapshots", () => {

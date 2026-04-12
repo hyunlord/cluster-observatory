@@ -1,9 +1,11 @@
 import React from "react";
 import Link from "next/link";
-import type { NamespaceDetail } from "../../lib/gke-dashboard";
+import type { GkeDashboardData, NamespaceDetail } from "../../lib/gke-dashboard";
+import { SnapshotTrustPanel } from "./snapshot-trust-panel";
 
 interface NamespaceDetailPanelProps {
   detail?: NamespaceDetail;
+  snapshot?: GkeDashboardData["snapshot"];
 }
 
 function dashboardHref(detail: NamespaceDetail): string {
@@ -18,7 +20,7 @@ function nodeHref(node: string): string {
   return `/dashboard/nodes/${encodeURIComponent(node)}`;
 }
 
-export function NamespaceDetailPanel({ detail }: NamespaceDetailPanelProps) {
+export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelProps) {
   if (!detail) {
     return (
       <article className="panel side-panel drawer-panel drawer-panel-page">
@@ -102,6 +104,38 @@ export function NamespaceDetailPanel({ detail }: NamespaceDetailPanelProps) {
               Open busiest node
             </Link>
           ) : null}
+        </div>
+      </div>
+
+      {snapshot ? (
+        <SnapshotTrustPanel
+          snapshot={snapshot}
+          description="Namespace diagnostics depend on the same collector coverage as the overview"
+        />
+      ) : null}
+
+      <div className="detail-section">
+        <div className="detail-section-header">
+          <h3>Efficiency posture</h3>
+          <small className="muted">Estimated efficiency signals for request tuning and idle allocation.</small>
+        </div>
+        <div className="side-kpi-list side-kpi-list-compact">
+          <div className="side-kpi">
+            <span>Request efficiency</span>
+            <strong>{detail.namespace.efficiency.requestEfficiencyLabel}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Idle allocation estimate</span>
+            <strong>{detail.namespace.efficiency.idleAllocationEstimate}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Over-requested workloads</span>
+            <strong>{detail.namespace.efficiency.overRequestedWorkloads}</strong>
+          </div>
+          <div className="side-kpi">
+            <span>Cost source</span>
+            <strong>{detail.namespace.efficiency.costSource}</strong>
+          </div>
         </div>
       </div>
 

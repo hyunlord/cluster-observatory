@@ -22,6 +22,8 @@ describe("/dashboard/workloads/[namespace]/[workload]", () => {
     expect(html).toContain("CrashLoopBackOff");
     expect(html).toContain("Hot pod");
     expect(html).toContain("api-gateway-2");
+    expect(html).toContain("Container health");
+    expect(html).toContain("CrashLoopBackOff · 4 restarts");
     expect(html).toContain("Node spread");
     expect(html).toContain("Pods by node");
     expect(html).toContain("1 needs attention");
@@ -34,5 +36,12 @@ describe("/dashboard/workloads/[namespace]/[workload]", () => {
     expect(html).toContain("Focus namespace");
     expect(html).toContain("Open primary node");
     expect(html).toContain("Open namespace detail");
+    expect(html).toContain("Rightsizing hint");
+    expect(html).toContain("Observe");
+    expect(html).toContain("Estimated efficiency signal");
+    expect(html).toContain("Cost source");
+    expect(html).toContain("Snapshot trust");
+    expect(html).toContain("High confidence");
+    expect(html).toContain("Full coverage");
   });
 });

@@ -283,11 +283,18 @@ export function DashboardExplorer({ data, initialFilters }: DashboardExplorerPro
                     {workload.memoryRequests} / {workload.memoryLimits}
                   </small>
                 </div>
-                <span
-                  className={`status-pill status-pill-${workload.efficiency === "Healthy" ? "healthy" : workload.efficiency === "Watch" ? "warning" : "critical"}`}
-                >
-                  {workload.efficiency}
-                </span>
+                <div className="dashboard-row-status">
+                  <span
+                    className={`status-pill status-pill-${workload.efficiency === "Healthy" ? "healthy" : workload.efficiency === "Watch" ? "warning" : "critical"}`}
+                  >
+                    {workload.efficiency}
+                  </span>
+                  <div className="drawer-tags dashboard-row-tags">
+                    {workload.overRequested ? <span>Over-requested</span> : null}
+                    {workload.underRequestRisk ? <span>Low headroom</span> : null}
+                    <span>{workload.rightsizingHint}</span>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
@@ -458,7 +465,7 @@ export function DashboardExplorer({ data, initialFilters }: DashboardExplorerPro
       </div>
 
       <aside className="dashboard-side-rail">
-        <WorkloadDetailPanel detail={view.selectedWorkload} />
+        <WorkloadDetailPanel detail={view.selectedWorkload} snapshot={data.snapshot} />
       </aside>
     </div>
   );

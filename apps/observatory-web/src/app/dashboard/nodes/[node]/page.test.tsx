@@ -26,6 +26,7 @@ describe("/dashboard/nodes/[node]", () => {
     expect(html).toContain("Recent node events");
     expect(html).toContain("NodeHasInsufficientMemory");
     expect(html).toContain("api-gateway-2");
+    expect(html).toContain("CrashLoopBackOff");
     expect(html).toContain("api-gateway");
     expect(html).toContain("auth-service");
     expect(html).toContain("application");
@@ -36,5 +37,9 @@ describe("/dashboard/nodes/[node]", () => {
     expect(html).toContain("Operator actions");
     expect(html).toContain("Inspect with kubectl describe node");
     expect(html).toContain("Open namespace blast radius");
+    expect(html).toContain("Snapshot trust");
+    expect(html).toContain("High confidence");
+    expect(html).toContain("Full coverage");
+    expect(html).toContain("gateway");
   });
 });

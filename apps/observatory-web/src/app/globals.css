@@ -80,6 +80,14 @@ button {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 250, 247, 0.86));
 }
 
+.efficiency-strip {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 22px 24px 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 246, 255, 0.88));
+}
+
 .history-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
@@ -861,6 +869,21 @@ small {
 .workload-label {
   display: grid;
   gap: 2px;
+}
+
+.dashboard-row-status {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.dashboard-row-tags {
+  gap: 6px;
+}
+
+.dashboard-row-tags span {
+  font-size: 0.75rem;
+  padding: 5px 8px;
 }
 
 .metric-stack {

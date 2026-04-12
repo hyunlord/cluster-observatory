@@ -33,7 +33,7 @@ export default async function NodeDetailPage(props: NodeDetailPageProps) {
         ) : null}
       </header>
 
-      <NodeDetailPanel detail={detail} />
+      <NodeDetailPanel detail={detail} snapshot={data.snapshot} />
     </main>
   );
 }

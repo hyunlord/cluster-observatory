@@ -26,7 +26,16 @@ describe("/dashboard", () => {
     expect(html).toContain("Recent Drift");
     expect(html).toContain("Recent snapshots");
     expect(html).toContain("History warming up");
+    expect(html).toContain("Efficiency Signals");
+    expect(html).toContain("Cost source");
+    expect(html).toContain("Most over-requested workload");
+    expect(html).toContain("Highest idle allocation namespace");
+    expect(html).toContain("Top rightsizing candidate");
+    expect(html).toContain("Heuristic only");
     expect(html).toContain("Snapshot status");
+    expect(html).toContain("Collector confidence");
+    expect(html).toContain("Missing sources");
+    expect(html).toContain("Affected areas");
     expect(html).toContain("Hot namespace");
     expect(html).toContain("Busiest node");
     expect(html).toContain("Top workload");
