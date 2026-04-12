@@ -1,0 +1,350 @@
+{
+  "cluster": {
+    "name": "demo-cluster",
+    "region": "demo-region",
+    "source": "bundled demo snapshot",
+    "capturedAt": "2026-04-10T15:00:00Z",
+    "health": "Stable"
+  },
+  "snapshot": {
+    "collectorStatus": "complete",
+    "collectionWarnings": []
+  },
+  "usage": {
+    "cpu": {
+      "allocatable": 63.35,
+      "used": 4.87,
+      "unit": "vCPU"
+    },
+    "memory": {
+      "allocatable": 266.75,
+      "used": 52.7,
+      "unit": "GiB"
+    },
+    "gpu": {
+      "allocatable": 1,
+      "used": 0.4,
+      "unit": "GPU",
+      "model": "NVIDIA T4"
+    }
+  },
+  "nodes": [
+    {
+      "name": "demo-gpu-pool-a",
+      "status": "Ready",
+      "cpu": {
+        "allocatable": 15.8,
+        "used": 1.2,
+        "unit": "vCPU"
+      },
+      "memory": {
+        "allocatable": 59.5,
+        "used": 11.4,
+        "unit": "GiB"
+      },
+      "gpu": {
+        "allocatable": 1,
+        "used": 0.4,
+        "unit": "GPU",
+        "model": "NVIDIA T4"
+      }
+    },
+    {
+      "name": "demo-app-pool-a",
+      "status": "Ready",
+      "cpu": {
+        "allocatable": 23.7,
+        "used": 2.4,
+        "unit": "vCPU"
+      },
+      "memory": {
+        "allocatable": 103.1,
+        "used": 21.3,
+        "unit": "GiB"
+      }
+    },
+    {
+      "name": "demo-app-pool-b",
+      "status": "Ready",
+      "cpu": {
+        "allocatable": 23.7,
+        "used": 1.3,
+        "unit": "vCPU"
+      },
+      "memory": {
+        "allocatable": 104.1,
+        "used": 20,
+        "unit": "GiB"
+      },
+      "conditions": [
+        {
+          "type": "Ready",
+          "status": "True",
+          "reason": "KubeletReady",
+          "message": "kubelet is posting ready status"
+        },
+        {
+          "type": "MemoryPressure",
+          "status": "True",
+          "reason": "KubeletHasInsufficientMemory",
+          "message": "memory pressure is active on the node"
+        },
+        {
+          "type": "DiskPressure",
+          "status": "False",
+          "reason": "KubeletHasNoDiskPressure",
+          "message": "disk pressure is clear"
+        }
+      ],
+      "taints": [
+        {
+          "key": "workload",
+          "value": "application",
+          "effect": "NoSchedule"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "NodeHasInsufficientMemory",
+          "message": "Node demo-app-pool-b is low on memory and eviction thresholds are near",
+          "count": 3,
+          "lastSeen": "2026-04-10T14:58:00Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "NodeReady",
+          "message": "Node demo-app-pool-b reported ready status",
+          "count": 1,
+          "lastSeen": "2026-04-10T14:52:00Z"
+        }
+      ]
+    }
+  ],
+  "namespaces": [
+    {
+      "name": "monitoring",
+      "cpuUsed": 1.5,
+      "memoryUsed": 18.2,
+      "gpuUsed": 0,
+      "topWorkload": "prometheus-server",
+      "alerts": [],
+      "events": []
+    },
+    {
+      "name": "ml-runtime",
+      "cpuUsed": 1.2,
+      "memoryUsed": 12.6,
+      "gpuUsed": 0.4,
+      "topWorkload": "training-job-01",
+      "alerts": [
+        {
+          "label": "GPU queue pressure",
+          "tone": "warning"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackoffLimitApproaching",
+          "message": "Job retries are climbing and GPU queue time is increasing.",
+          "count": 2,
+          "lastSeen": "2026-04-10T14:56:00Z"
+        }
+      ]
+    },
+    {
+      "name": "application",
+      "cpuUsed": 2.1,
+      "memoryUsed": 21.9,
+      "gpuUsed": 0,
+      "topWorkload": "api-gateway",
+      "alerts": [
+        {
+          "label": "Restart hot pods",
+          "tone": "critical"
+        }
+      ],
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "CrashLoopBackOff",
+          "message": "The namespace contains restarting gateway pods that need inspection.",
+          "count": 5,
+          "lastSeen": "2026-04-10T14:59:00Z"
+        }
+      ]
+    }
+  ],
+  "workloads": [
+    {
+      "namespace": "monitoring",
+      "name": "prometheus-server",
+      "kind": "Deployment",
+      "replicas": 1,
+      "node": "demo-app-pool-a",
+      "usage": { "cpu": 0.85, "memory": 12.4, "gpu": 0 },
+      "requests": { "cpu": 1.0, "memory": 16.0, "gpu": 0 },
+      "limits": { "cpu": 2.0, "memory": 24.0, "gpu": 0 },
+      "events": []
+    },
+    {
+      "namespace": "application",
+      "name": "api-gateway",
+      "kind": "Deployment",
+      "replicas": 3,
+      "node": "demo-app-pool-b",
+      "usage": { "cpu": 1.2, "memory": 8.2, "gpu": 0 },
+      "requests": { "cpu": 1.5, "memory": 12.0, "gpu": 0 },
+      "limits": { "cpu": 3.0, "memory": 16.0, "gpu": 0 },
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "api-gateway pods are restarting after failed readiness checks.",
+          "count": 4,
+          "lastSeen": "2026-04-10T14:58:30Z"
+        }
+      ]
+    },
+    {
+      "namespace": "ml-runtime",
+      "name": "training-job-01",
+      "kind": "Job",
+      "replicas": 1,
+      "node": "demo-gpu-pool-a",
+      "usage": { "cpu": 0.7, "memory": 8.6, "gpu": 0.4 },
+      "requests": { "cpu": 1.0, "memory": 16.0, "gpu": 1 },
+      "limits": { "cpu": 4.0, "memory": 32.0, "gpu": 1 },
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Scheduled",
+          "message": "training-job-01 is scheduled on the GPU pool and is actively consuming quota.",
+          "count": 1,
+          "lastSeen": "2026-04-10T14:54:00Z"
+        }
+      ]
+    },
+    {
+      "namespace": "monitoring",
+      "name": "grafana",
+      "kind": "Deployment",
+      "replicas": 1,
+      "node": "demo-app-pool-a",
+      "usage": { "cpu": 0.15, "memory": 2.1, "gpu": 0 },
+      "requests": { "cpu": 0.2, "memory": 4.0, "gpu": 0 },
+      "limits": { "cpu": 0.5, "memory": 8.0, "gpu": 0 },
+      "events": []
+    },
+    {
+      "namespace": "application",
+      "name": "auth-service",
+      "kind": "Deployment",
+      "replicas": 2,
+      "node": "demo-app-pool-b",
+      "usage": { "cpu": 0.4, "memory": 4.5, "gpu": 0 },
+      "requests": { "cpu": 0.5, "memory": 8.0, "gpu": 0 },
+      "limits": { "cpu": 1.0, "memory": 12.0, "gpu": 0 },
+      "events": []
+    }
+  ],
+  "pods": [
+    {
+      "namespace": "monitoring",
+      "workloadName": "prometheus-server",
+      "workloadKind": "Deployment",
+      "name": "prometheus-server-0",
+      "node": "demo-app-pool-a",
+      "status": "Running",
+      "restartCount": 0,
+      "readyContainers": 1,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.85, "memory": 12.4, "gpu": 0 }
+    },
+    {
+      "namespace": "application",
+      "workloadName": "api-gateway",
+      "workloadKind": "Deployment",
+      "name": "api-gateway-0",
+      "node": "demo-app-pool-b",
+      "status": "Running",
+      "restartCount": 0,
+      "readyContainers": 1,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.4, "memory": 2.8, "gpu": 0 }
+    },
+    {
+      "namespace": "application",
+      "workloadName": "api-gateway",
+      "workloadKind": "Deployment",
+      "name": "api-gateway-1",
+      "node": "demo-app-pool-b",
+      "status": "Running",
+      "restartCount": 0,
+      "readyContainers": 1,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.4, "memory": 2.7, "gpu": 0 }
+    },
+    {
+      "namespace": "application",
+      "workloadName": "api-gateway",
+      "workloadKind": "Deployment",
+      "name": "api-gateway-2",
+      "node": "demo-app-pool-b",
+      "status": "CrashLoopBackOff",
+      "restartCount": 5,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.4, "memory": 2.7, "gpu": 0 }
+    },
+    {
+      "namespace": "ml-runtime",
+      "workloadName": "training-job-01",
+      "workloadKind": "Job",
+      "name": "training-job-01-0",
+      "node": "demo-gpu-pool-a",
+      "status": "Running",
+      "restartCount": 1,
+      "readyContainers": 1,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.7, "memory": 8.6, "gpu": 0.4 }
+    },
+    {
+      "namespace": "monitoring",
+      "workloadName": "grafana",
+      "workloadKind": "Deployment",
+      "name": "grafana-0",
+      "node": "demo-app-pool-a",
+      "status": "Running",
+      "restartCount": 0,
+      "readyContainers": 1,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.15, "memory": 2.1, "gpu": 0 }
+    },
+    {
+      "namespace": "application",
+      "workloadName": "auth-service",
+      "workloadKind": "Deployment",
+      "name": "auth-service-0",
+      "node": "demo-app-pool-b",
+      "status": "Running",
+      "restartCount": 0,
+      "readyContainers": 1,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.2, "memory": 2.2, "gpu": 0 }
+    },
+    {
+      "namespace": "application",
+      "workloadName": "auth-service",
+      "workloadKind": "Deployment",
+      "name": "auth-service-1",
+      "node": "demo-app-pool-b",
+      "status": "Pending",
+      "restartCount": 0,
+      "readyContainers": 0,
+      "totalContainers": 1,
+      "usage": { "cpu": 0.2, "memory": 2.3, "gpu": 0 }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "cluster-observatory",
+  "private": true,
+  "packageManager": "pnpm@10.8.1",
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@next/eslint-plugin-next": "^15.5.15",
+    "@eslint/js": "^9.18.0",
+    "eslint-config-next": "^15.5.15",
+    "globals": "^15.14.0",
+    "typescript-eslint": "^8.21.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter observatory-web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "verify": "./scripts/verify.sh",
+    "collect:gke-snapshot": "node ./scripts/collect-gke-snapshot.mjs",
+    "collect:gke-snapshot:batch": "node ./scripts/collect-gke-snapshot-batch.mjs"
+  }
+}
