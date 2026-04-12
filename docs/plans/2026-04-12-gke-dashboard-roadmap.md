@@ -26,7 +26,7 @@ The dashboard should follow four operating principles:
 - `Phase 4: Operations Workbench` — complete
 - `Phase 5: Time and History` — complete
 - `Phase 6: Data Fidelity` — complete
-- `Phase 7: Cost and Efficiency` — in progress
+- `Phase 7: Cost and Efficiency` — complete
 - `Phase 8: Product UX Refinement` — planned
 
 ## Reference Patterns
@@ -258,6 +258,25 @@ When pod-level data is unavailable, the dashboard can derive a temporary fallbac
 ### Phase 3 Non-Goals
 
 This phase should not yet include:
+
+### Phase 7: Cost and Efficiency
+
+Status: complete
+
+Purpose:
+- surface waste, idle allocation, and rightsizing signals without waiting on full billing integrations
+
+Scope:
+- heuristic efficiency signals in overview, namespace detail, and workload detail
+- idle allocation estimates and rightsizing hints
+- `costSource` and confidence messaging
+- OpenCost-ready slots for actual cost values
+- overview cluster cost summary when an OpenCost summary file is present
+
+Success criteria:
+- operators can identify likely waste and headroom issues from the current snapshot
+- the UI clearly distinguishes heuristic estimates from actual OpenCost-backed values
+- namespace and workload surfaces are ready to consume real cost data without another redesign
 
 - live logs
 - Kubernetes events integration
