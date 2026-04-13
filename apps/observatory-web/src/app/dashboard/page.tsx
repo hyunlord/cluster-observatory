@@ -146,9 +146,11 @@ export default async function DashboardPage(props: DashboardPageProps) {
   const initialFilters = filtersFromSearchParams(params);
 
   return (
-    <main className="console-shell">
-      <header className="dashboard-hero">
-        <section className="panel hero-primary">
+    <main
+      className={`console-shell dashboard-shell dashboard-shell-density-${initialFilters.density} dashboard-shell-view-${initialFilters.view}`}
+    >
+      <header className={`dashboard-hero dashboard-hero-density-${initialFilters.density}`}>
+        <section className={`panel hero-primary hero-primary-density-${initialFilters.density}`}>
           <p className="eyebrow">Operations Overview</p>
           <div className="hero-row">
             <div>
@@ -195,7 +197,7 @@ export default async function DashboardPage(props: DashboardPageProps) {
           </section>
         </section>
 
-        <aside className="panel hero-side" id="snapshot-status">
+        <aside className={`panel hero-side hero-side-density-${initialFilters.density}`} id="snapshot-status">
           <div className="section-header">
             <div>
               <p className="eyebrow">Live State</p>

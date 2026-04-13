@@ -64,12 +64,25 @@ button {
   margin-bottom: 18px;
 }
 
+.dashboard-shell-density-dense .dashboard-hero {
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
 .hot-alerts-strip {
   display: grid;
   gap: 14px;
   margin-bottom: 18px;
   padding: 20px 24px 24px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 247, 236, 0.88));
+}
+
+.dashboard-shell-density-dense .hot-alerts-strip,
+.dashboard-shell-density-dense .history-strip,
+.dashboard-shell-density-dense .efficiency-strip {
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 18px 20px 20px;
 }
 
 .history-strip {
@@ -309,6 +322,18 @@ button {
   padding: 24px;
 }
 
+.hero-primary-density-dense,
+.hero-side-density-dense,
+.dashboard-shell-density-dense .operator-section,
+.dashboard-shell-density-dense .consumers-section,
+.dashboard-shell-density-dense .capacity-section,
+.dashboard-shell-density-dense .workload-section,
+.dashboard-shell-density-dense .pressure-panel,
+.dashboard-shell-density-dense .side-panel,
+.dashboard-shell-density-dense .stat-card {
+  padding: 18px;
+}
+
 .hero-row,
 .section-header,
 .pressure-copy,
@@ -382,6 +407,11 @@ button {
   margin-top: 18px;
 }
 
+.dashboard-shell-density-dense .hero-chip-row {
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .hero-side {
   display: grid;
   gap: 18px;
@@ -396,6 +426,12 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.dashboard-shell-density-dense .hero-side-grid,
+.dashboard-shell-density-dense .hero-footprint-grid,
+.dashboard-shell-density-dense .hero-focus-grid {
+  gap: 10px;
 }
 
 .hero-side-block,
@@ -414,6 +450,14 @@ button {
 .pressure-card,
 .namespace-card {
   padding: 16px;
+}
+
+.dashboard-shell-density-dense .hero-side-block,
+.dashboard-shell-density-dense .hero-meta-block,
+.dashboard-shell-density-dense .hero-footprint-card,
+.dashboard-shell-density-dense .hero-focus-card,
+.dashboard-shell-density-dense .hero-status-card {
+  padding: 12px 14px;
 }
 
 .hero-status-card {

@@ -89,6 +89,9 @@ describe("/dashboard", () => {
 
     expect(html).toContain("dashboard-density-dense");
     expect(html).toContain("dashboard-view-capacity");
+    expect(html).toContain("dashboard-shell-density-dense");
+    expect(html).toContain("dashboard-shell-view-capacity");
+    expect(html).toContain("dashboard-hero-density-dense");
     expect(html.indexOf("Usage vs. Reservations")).toBeLessThan(html.indexOf("Resource heavyweights"));
   });
 
