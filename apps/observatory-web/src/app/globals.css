@@ -891,6 +891,14 @@ small {
   gap: 2px;
 }
 
+.mobile-field-label {
+  display: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .node-label,
 .metric-cell,
 .namespace-card-operator,
@@ -1004,6 +1012,10 @@ small {
   display: grid;
   gap: 18px;
   align-content: start;
+}
+
+.dashboard-mobile-detail {
+  display: none;
 }
 
 .drawer-panel-page {
@@ -1192,6 +1204,47 @@ textarea {
 .occupancy-section {
   display: grid;
   gap: 18px;
+}
+
+.explorer-toolbar {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 252, 0.9));
+}
+
+.explorer-toolbar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.explorer-toolbar-group {
+  display: grid;
+  gap: 10px;
+}
+
+.explorer-toolbar-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.explorer-toolbar-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.segmented-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.segmented-control-button {
+  min-width: 116px;
 }
 
 .filter-panel {
@@ -1417,6 +1470,65 @@ textarea {
   font-size: 0.92rem;
 }
 
+.dashboard-section {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.dashboard-view-capacity .dashboard-section-capacity,
+.dashboard-view-incidents .dashboard-section-incidents,
+.dashboard-view-cost .dashboard-section-cost,
+.dashboard-view-overview .dashboard-section-overview {
+  border-color: rgba(13, 138, 102, 0.24);
+  box-shadow: 0 24px 48px rgba(17, 37, 69, 0.1);
+}
+
+.dashboard-density-dense .dashboard-content,
+.dashboard-density-dense .dashboard-side-rail,
+.dashboard-density-dense .summary-grid,
+.dashboard-density-dense .dashboard-table,
+.dashboard-density-dense .consumers-grid,
+.dashboard-density-dense .occupancy-grid,
+.dashboard-density-dense .namespace-grid,
+.dashboard-density-dense .pressure-grid-cards,
+.dashboard-density-dense .capacity-grid {
+  gap: 12px;
+}
+
+.dashboard-density-dense .explorer-toolbar,
+.dashboard-density-dense .filter-panel,
+.dashboard-density-dense .history-strip,
+.dashboard-density-dense .efficiency-strip,
+.dashboard-density-dense .hot-alerts-strip {
+  padding: 16px 18px 18px;
+}
+
+.dashboard-density-dense .stat-card strong {
+  font-size: clamp(1.7rem, 2vw, 2.3rem);
+}
+
+.dashboard-density-dense .dashboard-row {
+  padding: 11px 13px;
+}
+
+.dashboard-density-dense .consumer-row,
+.dashboard-density-dense .occupancy-card,
+.dashboard-density-dense .capacity-card,
+.dashboard-density-dense .consumer-panel {
+  padding: 14px;
+}
+
+.dashboard-density-dense .drawer-panel-page,
+.dashboard-density-dense .detail-section,
+.dashboard-density-dense .drawer-pod-list {
+  gap: 14px;
+}
+
+.dashboard-density-dense .drawer-capacity-card,
+.dashboard-density-dense .hotspot-card,
+.dashboard-density-dense .pod-group-card {
+  padding: 12px;
+}
+
 @media (max-width: 1180px) {
   .dashboard-hero,
   .dashboard-main-grid,
@@ -1428,6 +1540,7 @@ textarea {
   .namespace-grid,
   .hero-footprint-grid,
   .run-grid,
+  .explorer-toolbar-grid,
   .filter-grid,
   .drawer-capacity-grid,
   .side-kpi-list {
@@ -1450,6 +1563,14 @@ textarea {
     justify-items: start;
     text-align: left;
   }
+
+  .dashboard-side-rail {
+    display: none;
+  }
+
+  .dashboard-mobile-detail {
+    display: block;
+  }
 }
 
 @media (max-width: 780px) {
@@ -1458,14 +1579,42 @@ textarea {
     padding: 20px 0 56px;
   }
 
-  .dashboard-row,
-  .dashboard-row-head,
   .workload-table-head,
   .workload-table-row,
   .namespace-stats,
   .hero-side-grid,
   .drawer-pod-row {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-row-head {
+    display: none;
+  }
+
+  .dashboard-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(19, 35, 58, 0.08);
+  }
+
+  .dashboard-mobile-cell {
+    display: grid;
+    gap: 4px;
+  }
+
+  .mobile-field-label {
+    display: inline-flex;
+  }
+
+  .dashboard-row-status {
+    justify-items: stretch;
+  }
+
+  .dashboard-row-status .status-pill {
+    justify-self: start;
   }
 
   .live-controls {

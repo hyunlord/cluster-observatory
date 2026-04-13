@@ -42,4 +42,22 @@ describe("/dashboard/nodes/[node]", () => {
     expect(html).toContain("Full coverage");
     expect(html).toContain("gateway");
   });
+
+  it("preserves dashboard state in node detail navigation", async () => {
+    const view = await NodeDetailPage({
+      params: Promise.resolve({
+        node: "demo-app-pool-b"
+      }),
+      searchParams: Promise.resolve({
+        node: "demo-app-pool-b",
+        view: "incidents",
+        density: "dense"
+      })
+    });
+    const html = renderToStaticMarkup(view);
+
+    expect(html).toContain("/dashboard?node=demo-app-pool-b&amp;view=incidents&amp;density=dense");
+    expect(html).toContain("/dashboard/workloads/application/api-gateway?node=demo-app-pool-b&amp;view=incidents&amp;density=dense");
+    expect(html).toContain("/dashboard/namespaces/application?node=demo-app-pool-b&amp;view=incidents&amp;density=dense");
+  });
 });

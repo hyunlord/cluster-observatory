@@ -1,26 +1,38 @@
 import React from "react";
 import Link from "next/link";
 import type { GkeDashboardData, NamespaceDetail } from "../../lib/gke-dashboard";
+import { buildDashboardHref, buildDetailHref, normalizeDashboardFilters } from "../../lib/dashboard-query";
+import type { DashboardFilters } from "../../lib/gke-dashboard-view";
 import { SnapshotTrustPanel } from "./snapshot-trust-panel";
 
 interface NamespaceDetailPanelProps {
   detail?: NamespaceDetail;
   snapshot?: GkeDashboardData["snapshot"];
+  dashboardFilters?: DashboardFilters;
 }
 
-function dashboardHref(detail: NamespaceDetail): string {
-  return `/dashboard?namespace=${encodeURIComponent(detail.namespace.name)}`;
+function dashboardHref(detail: NamespaceDetail, dashboardFilters: DashboardFilters): string {
+  return buildDashboardHref({
+    ...dashboardFilters,
+    namespace: detail.namespace.name,
+    node: "",
+    search: ""
+  });
 }
 
-function workloadHref(namespace: string, workload: string): string {
-  return `/dashboard/workloads/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}`;
+function workloadHref(namespace: string, workload: string, dashboardFilters: DashboardFilters): string {
+  return buildDetailHref(`/dashboard/workloads/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}`, dashboardFilters);
 }
 
-function nodeHref(node: string): string {
-  return `/dashboard/nodes/${encodeURIComponent(node)}`;
+function nodeHref(node: string, dashboardFilters: DashboardFilters): string {
+  return buildDetailHref(`/dashboard/nodes/${encodeURIComponent(node)}`, dashboardFilters);
 }
 
-export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelProps) {
+export function NamespaceDetailPanel({
+  detail,
+  snapshot,
+  dashboardFilters = normalizeDashboardFilters({})
+}: NamespaceDetailPanelProps) {
   if (!detail) {
     return (
       <article className="panel side-panel drawer-panel drawer-panel-page">
@@ -44,7 +56,7 @@ export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelP
           <p className="eyebrow">Namespace Overview</p>
           <h2>{detail.namespace.name}</h2>
         </div>
-        <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+        <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
           Back to dashboard
         </Link>
       </div>
@@ -91,16 +103,16 @@ export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelP
           <small className="muted">Jump from the namespace summary into the hottest workload or busiest node.</small>
         </div>
         <div className="quick-action-grid">
-          <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
             Focus namespace on dashboard
           </Link>
           {topWorkload ? (
-            <Link className="control-pill detail-nav-link" href={workloadHref(detail.namespace.name, topWorkload.name)}>
+            <Link className="control-pill detail-nav-link" href={workloadHref(detail.namespace.name, topWorkload.name, dashboardFilters)}>
               Open top workload
             </Link>
           ) : null}
           {busiestNode ? (
-            <Link className="control-pill detail-nav-link" href={nodeHref(busiestNode.name)}>
+            <Link className="control-pill detail-nav-link" href={nodeHref(busiestNode.name, dashboardFilters)}>
               Open busiest node
             </Link>
           ) : null}
@@ -178,7 +190,7 @@ export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelP
                     {workload.kind} · {workload.cpuUsage} CPU · {workload.memoryUsage} memory
                   </small>
                 </div>
-                <Link className="control-pill detail-nav-link" href={workloadHref(detail.namespace.name, workload.name)}>
+                <Link className="control-pill detail-nav-link" href={workloadHref(detail.namespace.name, workload.name, dashboardFilters)}>
                   Open workload
                 </Link>
               </div>
@@ -208,7 +220,7 @@ export function NamespaceDetailPanel({ detail, snapshot }: NamespaceDetailPanelP
         </div>
         <div className="drawer-tags">
           {detail.nodes.map((node) => (
-            <Link className="drawer-tag-link" href={nodeHref(node.name)} key={node.name}>
+            <Link className="drawer-tag-link" href={nodeHref(node.name, dashboardFilters)} key={node.name}>
               {node.name}
             </Link>
           ))}

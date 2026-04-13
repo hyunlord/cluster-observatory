@@ -1,4 +1,5 @@
 import React from "react";
+import { filtersFromSearchParams } from "../../../../lib/dashboard-query";
 import { getGkeDashboardData } from "../../../../lib/gke-dashboard";
 import { buildNamespaceDetailView } from "../../../../lib/gke-dashboard-view";
 import { NamespaceDetailPanel } from "../../namespace-detail-panel";
@@ -7,11 +8,20 @@ interface NamespaceDetailPageProps {
   params?: Promise<{
     namespace: string;
   }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function NamespaceDetailPage(props: NamespaceDetailPageProps) {
   const data = await getGkeDashboardData(process.cwd());
   const params = props?.params ? await props.params : undefined;
+  const searchParams = props?.searchParams ? await props.searchParams : {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (typeof value === "string") {
+      query.set(key, value);
+    }
+  }
+  const dashboardFilters = filtersFromSearchParams(query);
   const namespaceName = decodeURIComponent(params?.namespace ?? "");
   const detail = buildNamespaceDetailView(data, namespaceName);
   const title = detail?.namespace.name ?? (namespaceName || "Namespace not found");
@@ -33,7 +43,7 @@ export default async function NamespaceDetailPage(props: NamespaceDetailPageProp
         ) : null}
       </header>
 
-      <NamespaceDetailPanel detail={detail} snapshot={data.snapshot} />
+      <NamespaceDetailPanel detail={detail} snapshot={data.snapshot} dashboardFilters={dashboardFilters} />
     </main>
   );
 }

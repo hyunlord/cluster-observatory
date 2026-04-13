@@ -633,7 +633,9 @@ describe("getGkeDashboardData", () => {
       {
         namespace: "application",
         node: "demo-app-pool-b",
-        search: "api"
+        search: "api",
+        view: "overview",
+        density: "comfortable"
       },
       "application/api-gateway"
     );
@@ -660,7 +662,11 @@ describe("getGkeDashboardData", () => {
 
   it("prefers real pod snapshot data over replica-derived fallback rows", async () => {
     const data = await getGkeDashboardData(process.cwd());
-    const view = buildDashboardView(data, { namespace: "", node: "", search: "training" }, "ml-runtime/training-job-01");
+    const view = buildDashboardView(
+      data,
+      { namespace: "", node: "", search: "training", view: "overview", density: "comfortable" },
+      "ml-runtime/training-job-01"
+    );
 
     expect(view.selectedWorkload?.pods[0]?.name).toBe("training-job-01-0");
     expect(view.selectedWorkload?.pods[0]?.status).toBe("Running");

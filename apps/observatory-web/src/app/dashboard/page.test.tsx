@@ -20,6 +20,11 @@ describe("/dashboard", () => {
     const html = renderToStaticMarkup(view);
 
     expect(html).toContain("Operations Overview");
+    expect(html).toContain("Preset view");
+    expect(html).toContain("Density");
+    expect(html).toContain("Copy link");
+    expect(html).toContain("Overview");
+    expect(html).toContain("Dense");
     expect(html).toContain("Live footprint");
     expect(html).toContain("Hot Alerts");
     expect(html).toContain("Recent Trend");
@@ -71,5 +76,31 @@ describe("/dashboard", () => {
     expect(html).toContain("Node Utilization");
     expect(html).toContain("Namespace Activity");
     expect(html).toContain("Source provider");
+  });
+
+  it("applies preset and density state from the URL to the rendered dashboard", async () => {
+    const view = await DashboardPage({
+      searchParams: Promise.resolve({
+        view: "capacity",
+        density: "dense"
+      })
+    });
+    const html = renderToStaticMarkup(view);
+
+    expect(html).toContain("dashboard-density-dense");
+    expect(html).toContain("dashboard-view-capacity");
+    expect(html.indexOf("Usage vs. Reservations")).toBeLessThan(html.indexOf("Resource heavyweights"));
+  });
+
+  it("renders mobile card labels for compressed workload and node tables", async () => {
+    const view = await DashboardPage({});
+    const html = renderToStaticMarkup(view);
+
+    expect(html).toContain("mobile-field-label");
+    expect(html).toContain("Workload name");
+    expect(html).toContain("Namespace scope");
+    expect(html).toContain("CPU posture");
+    expect(html).toContain("Node name");
+    expect(html).toContain("Node status");
   });
 });

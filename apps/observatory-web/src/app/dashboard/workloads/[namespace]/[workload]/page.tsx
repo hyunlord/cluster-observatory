@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React from "react";
+import { filtersFromSearchParams } from "../../../../../lib/dashboard-query";
 import { getGkeDashboardData } from "../../../../../lib/gke-dashboard";
 import { buildDashboardView } from "../../../../../lib/gke-dashboard-view";
 import { WorkloadDetailPanel } from "../../../workload-detail-panel";
@@ -9,15 +10,28 @@ interface WorkloadDetailPageProps {
     namespace: string;
     workload: string;
   }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function WorkloadDetailPage(props: WorkloadDetailPageProps) {
   const data = await getGkeDashboardData(process.cwd());
   const params = props?.params ? await props.params : undefined;
+  const searchParams = props?.searchParams ? await props.searchParams : {};
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (typeof value === "string") {
+      query.set(key, value);
+    }
+  }
+  const dashboardFilters = filtersFromSearchParams(query);
   const namespace = decodeURIComponent(params?.namespace ?? "");
   const workload = decodeURIComponent(params?.workload ?? "");
   const workloadId = namespace && workload ? `${namespace}/${workload}` : undefined;
-  const view = buildDashboardView(data, { namespace: "", node: "", search: "" }, workloadId);
+  const view = buildDashboardView(
+    data,
+    { namespace: "", node: "", search: "", view: "overview", density: "comfortable" },
+    workloadId
+  );
 
   if (!view.selectedWorkload) {
     return (
@@ -54,7 +68,12 @@ export default async function WorkloadDetailPage(props: WorkloadDetailPageProps)
         </div>
       </header>
 
-      <WorkloadDetailPanel detail={view.selectedWorkload} mode="page" snapshot={data.snapshot} />
+      <WorkloadDetailPanel
+        detail={view.selectedWorkload}
+        mode="page"
+        snapshot={data.snapshot}
+        dashboardFilters={dashboardFilters}
+      />
     </main>
   );
 }

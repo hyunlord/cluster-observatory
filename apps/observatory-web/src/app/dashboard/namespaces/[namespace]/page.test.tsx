@@ -34,4 +34,22 @@ describe("/dashboard/namespaces/[namespace]", () => {
     expect(html).toContain("High confidence");
     expect(html).toContain("Full coverage");
   });
+
+  it("preserves dashboard state in namespace detail navigation", async () => {
+    const view = await NamespaceDetailPage({
+      params: Promise.resolve({
+        namespace: "application"
+      }),
+      searchParams: Promise.resolve({
+        namespace: "application",
+        view: "cost",
+        density: "dense"
+      })
+    });
+    const html = renderToStaticMarkup(view);
+
+    expect(html).toContain("/dashboard?namespace=application&amp;view=cost&amp;density=dense");
+    expect(html).toContain("/dashboard/workloads/application/api-gateway?namespace=application&amp;view=cost&amp;density=dense");
+    expect(html).toContain("/dashboard/nodes/demo-app-pool-b?namespace=application&amp;view=cost&amp;density=dense");
+  });
 });

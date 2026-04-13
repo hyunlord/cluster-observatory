@@ -47,4 +47,24 @@ describe("/dashboard/workloads/[namespace]/[workload]", () => {
     expect(html).toContain("High confidence");
     expect(html).toContain("Full coverage");
   });
+
+  it("preserves dashboard view state in workload detail navigation", async () => {
+    const view = await WorkloadDetailPage({
+      params: Promise.resolve({
+        namespace: "application",
+        workload: "api-gateway"
+      }),
+      searchParams: Promise.resolve({
+        namespace: "application",
+        search: "api-gateway",
+        view: "cost",
+        density: "dense"
+      })
+    });
+    const html = renderToStaticMarkup(view);
+
+    expect(html).toContain("/dashboard?namespace=application&amp;search=api-gateway&amp;view=cost&amp;density=dense");
+    expect(html).toContain("/dashboard/namespaces/application?namespace=application&amp;search=api-gateway&amp;view=cost&amp;density=dense");
+    expect(html).toContain("/dashboard/nodes/demo-app-pool-b?namespace=application&amp;search=api-gateway&amp;view=cost&amp;density=dense");
+  });
 });

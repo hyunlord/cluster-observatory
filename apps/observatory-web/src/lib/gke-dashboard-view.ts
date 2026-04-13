@@ -17,7 +17,13 @@ export interface DashboardFilters {
   namespace: string;
   node: string;
   search: string;
+  view: DashboardViewPreset;
+  density: DashboardDensity;
 }
+
+export type DashboardViewPreset = "overview" | "capacity" | "incidents" | "cost";
+
+export type DashboardDensity = "comfortable" | "dense";
 
 export interface NodeOccupancyRow {
   name: string;

@@ -1,32 +1,43 @@
 import React from "react";
 import Link from "next/link";
 import type { GkeDashboardData, WorkloadDetail } from "../../lib/gke-dashboard";
+import { buildDashboardHref, buildDetailHref, normalizeDashboardFilters } from "../../lib/dashboard-query";
+import type { DashboardFilters } from "../../lib/gke-dashboard-view";
 import { SnapshotTrustPanel } from "./snapshot-trust-panel";
 
 interface WorkloadDetailPanelProps {
   detail?: WorkloadDetail;
   mode?: "drawer" | "page";
   snapshot?: GkeDashboardData["snapshot"];
+  dashboardFilters?: DashboardFilters;
 }
 
-function workloadHref(detail: WorkloadDetail): string {
-  return `/dashboard/workloads/${encodeURIComponent(detail.workload.namespace)}/${encodeURIComponent(detail.workload.name)}`;
+function workloadHref(detail: WorkloadDetail, dashboardFilters: DashboardFilters): string {
+  return buildDetailHref(
+    `/dashboard/workloads/${encodeURIComponent(detail.workload.namespace)}/${encodeURIComponent(detail.workload.name)}`,
+    dashboardFilters
+  );
 }
 
-function dashboardHref(detail: WorkloadDetail): string {
-  const params = new URLSearchParams({
+function dashboardHref(detail: WorkloadDetail, dashboardFilters: DashboardFilters): string {
+  return buildDashboardHref({
+    ...dashboardFilters,
     namespace: detail.workload.namespace,
+    node: "",
     search: detail.workload.name
   });
-
-  return `/dashboard?${params.toString()}`;
 }
 
-function namespaceHref(detail: WorkloadDetail): string {
-  return `/dashboard/namespaces/${encodeURIComponent(detail.workload.namespace)}`;
+function namespaceHref(detail: WorkloadDetail, dashboardFilters: DashboardFilters): string {
+  return buildDetailHref(`/dashboard/namespaces/${encodeURIComponent(detail.workload.namespace)}`, dashboardFilters);
 }
 
-export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: WorkloadDetailPanelProps) {
+export function WorkloadDetailPanel({
+  detail,
+  mode = "drawer",
+  snapshot,
+  dashboardFilters = normalizeDashboardFilters({})
+}: WorkloadDetailPanelProps) {
   if (!detail) {
     return (
       <article className="panel side-panel drawer-panel">
@@ -48,11 +59,11 @@ export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: Workl
           <h2>{detail.workload.name}</h2>
         </div>
         {mode === "drawer" ? (
-          <Link className="control-pill detail-nav-link" href={workloadHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={workloadHref(detail, dashboardFilters)}>
             Open full detail
           </Link>
         ) : (
-          <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
             Back to dashboard
           </Link>
         )}
@@ -100,16 +111,19 @@ export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: Workl
           <small className="muted">Jump from the current workload into the most useful next views</small>
         </div>
         <div className="quick-action-grid">
-          <Link className="control-pill detail-nav-link" href={`/dashboard?namespace=${encodeURIComponent(detail.workload.namespace)}`}>
+          <Link className="control-pill detail-nav-link" href={buildDashboardHref({ ...dashboardFilters, namespace: detail.workload.namespace, node: "", search: "" })}>
             Focus namespace
           </Link>
-          <Link className="control-pill detail-nav-link" href={namespaceHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={namespaceHref(detail, dashboardFilters)}>
             Open namespace detail
           </Link>
-          <Link className="control-pill detail-nav-link" href={`/dashboard/nodes/${encodeURIComponent(detail.summary.primaryNode)}`}>
+          <Link
+            className="control-pill detail-nav-link"
+            href={buildDetailHref(`/dashboard/nodes/${encodeURIComponent(detail.summary.primaryNode)}`, dashboardFilters)}
+          >
             Open primary node
           </Link>
-          <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
             Focus workload on dashboard
           </Link>
         </div>
@@ -201,10 +215,10 @@ export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: Workl
           <small className="muted">Use these shortcuts to pivot from the snapshot into deeper workload debugging.</small>
         </div>
         <div className="quick-action-grid">
-          <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
             Focus workload on dashboard
           </Link>
-          <Link className="control-pill detail-nav-link" href={namespaceHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={namespaceHref(detail, dashboardFilters)}>
             Open namespace detail
           </Link>
           <span className="control-pill control-pill-static">Inspect logs with kubectl</span>
@@ -218,7 +232,11 @@ export function WorkloadDetailPanel({ detail, mode = "drawer", snapshot }: Workl
         </div>
         <div className="drawer-tags">
           {detail.nodeSpread.map((nodeName) => (
-            <Link className="drawer-tag-link" key={nodeName} href={`/dashboard/nodes/${encodeURIComponent(nodeName)}`}>
+            <Link
+              className="drawer-tag-link"
+              key={nodeName}
+              href={buildDetailHref(`/dashboard/nodes/${encodeURIComponent(nodeName)}`, dashboardFilters)}
+            >
               {nodeName}
             </Link>
           ))}

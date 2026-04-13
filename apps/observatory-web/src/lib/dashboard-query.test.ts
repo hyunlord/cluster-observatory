@@ -4,13 +4,15 @@ import { filtersFromSearchParams, filtersToQueryString } from "./dashboard-query
 describe("dashboard-query", () => {
   it("reads filter state from URL search params", () => {
     const filters = filtersFromSearchParams(
-      new URLSearchParams("namespace=application&node=demo-app-pool-b&search=api")
+      new URLSearchParams("namespace=application&node=demo-app-pool-b&search=api&view=cost&density=dense")
     );
 
     expect(filters).toEqual({
       namespace: "application",
       node: "demo-app-pool-b",
-      search: "api"
+      search: "api",
+      view: "cost",
+      density: "dense"
     });
   });
 
@@ -18,9 +20,11 @@ describe("dashboard-query", () => {
     const query = filtersToQueryString({
       namespace: "application",
       node: "",
-      search: "api"
+      search: "api",
+      view: "incidents",
+      density: "dense"
     });
 
-    expect(query).toBe("namespace=application&search=api");
+    expect(query).toBe("namespace=application&search=api&view=incidents&density=dense");
   });
 });

@@ -1,30 +1,38 @@
 import React from "react";
 import Link from "next/link";
 import type { GkeDashboardData, NodeDetail } from "../../lib/gke-dashboard";
+import { buildDashboardHref, buildDetailHref, normalizeDashboardFilters } from "../../lib/dashboard-query";
+import type { DashboardFilters } from "../../lib/gke-dashboard-view";
 import { SnapshotTrustPanel } from "./snapshot-trust-panel";
 
 interface NodeDetailPanelProps {
   detail?: NodeDetail;
   snapshot?: GkeDashboardData["snapshot"];
+  dashboardFilters?: DashboardFilters;
 }
 
-function dashboardHref(detail: NodeDetail): string {
-  const params = new URLSearchParams({
-    node: detail.node.name
+function dashboardHref(detail: NodeDetail, dashboardFilters: DashboardFilters): string {
+  return buildDashboardHref({
+    ...dashboardFilters,
+    namespace: "",
+    node: detail.node.name,
+    search: ""
   });
-
-  return `/dashboard?${params.toString()}`;
 }
 
-function workloadHref(namespace: string, workload: string): string {
-  return `/dashboard/workloads/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}`;
+function workloadHref(namespace: string, workload: string, dashboardFilters: DashboardFilters): string {
+  return buildDetailHref(`/dashboard/workloads/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}`, dashboardFilters);
 }
 
-function namespaceHref(namespace: string): string {
-  return `/dashboard/namespaces/${encodeURIComponent(namespace)}`;
+function namespaceHref(namespace: string, dashboardFilters: DashboardFilters): string {
+  return buildDetailHref(`/dashboard/namespaces/${encodeURIComponent(namespace)}`, dashboardFilters);
 }
 
-export function NodeDetailPanel({ detail, snapshot }: NodeDetailPanelProps) {
+export function NodeDetailPanel({
+  detail,
+  snapshot,
+  dashboardFilters = normalizeDashboardFilters({})
+}: NodeDetailPanelProps) {
   if (!detail) {
     return (
       <article className="panel side-panel drawer-panel drawer-panel-page">
@@ -48,7 +56,7 @@ export function NodeDetailPanel({ detail, snapshot }: NodeDetailPanelProps) {
           <p className="eyebrow">Node Overview</p>
           <h2>{detail.node.name}</h2>
         </div>
-        <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+        <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
           Back to dashboard
         </Link>
       </div>
@@ -95,18 +103,21 @@ export function NodeDetailPanel({ detail, snapshot }: NodeDetailPanelProps) {
           <small className="muted">Jump from the current node into the most relevant follow-up views</small>
         </div>
         <div className="quick-action-grid">
-          <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
             Focus node on dashboard
           </Link>
           {dominantWorkload ? (
             <Link
               className="control-pill detail-nav-link"
-              href={workloadHref(dominantWorkload.workload.namespace, dominantWorkload.workload.name)}
+              href={workloadHref(dominantWorkload.workload.namespace, dominantWorkload.workload.name, dashboardFilters)}
             >
               Open dominant workload
             </Link>
           ) : null}
-          <Link className="control-pill detail-nav-link" href={`/dashboard?namespace=${encodeURIComponent(detail.summary.primaryNamespace)}`}>
+          <Link
+            className="control-pill detail-nav-link"
+            href={buildDashboardHref({ ...dashboardFilters, namespace: detail.summary.primaryNamespace, search: "" })}
+          >
             Focus namespace
           </Link>
         </div>
@@ -150,18 +161,18 @@ export function NodeDetailPanel({ detail, snapshot }: NodeDetailPanelProps) {
           <small className="muted">Shortcuts for the next diagnosis step once a node looks unhealthy.</small>
         </div>
         <div className="quick-action-grid">
-          <Link className="control-pill detail-nav-link" href={dashboardHref(detail)}>
+          <Link className="control-pill detail-nav-link" href={dashboardHref(detail, dashboardFilters)}>
             Focus node on dashboard
           </Link>
           {dominantWorkload ? (
             <Link
               className="control-pill detail-nav-link"
-              href={workloadHref(dominantWorkload.workload.namespace, dominantWorkload.workload.name)}
+              href={workloadHref(dominantWorkload.workload.namespace, dominantWorkload.workload.name, dashboardFilters)}
             >
               Open dominant workload
             </Link>
           ) : null}
-          <Link className="control-pill detail-nav-link" href={namespaceHref(detail.summary.primaryNamespace)}>
+          <Link className="control-pill detail-nav-link" href={namespaceHref(detail.summary.primaryNamespace, dashboardFilters)}>
             Open namespace blast radius
           </Link>
           <span className="control-pill control-pill-static">Inspect with kubectl describe node</span>
@@ -312,7 +323,10 @@ export function NodeDetailPanel({ detail, snapshot }: NodeDetailPanelProps) {
                     {group.workload.namespace} · {group.workload.kind}
                   </small>
                 </div>
-                <Link className="control-pill detail-nav-link" href={workloadHref(group.workload.namespace, group.workload.name)}>
+                <Link
+                  className="control-pill detail-nav-link"
+                  href={workloadHref(group.workload.namespace, group.workload.name, dashboardFilters)}
+                >
                   Open workload
                 </Link>
               </div>
