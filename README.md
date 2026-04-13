@@ -45,6 +45,77 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Deployment modes
+
+Cluster Observatory supports three practical deployment modes.
+
+### 1. Sample-only demo
+
+Best for:
+
+- public demos
+- design reviews
+- trying the UI without cluster access
+
+Behavior:
+
+- no environment variables required
+- the app serves the bundled anonymized sample snapshot
+- safe to deploy anywhere the Next.js app can run
+
+### 2. Self-hosted with local snapshot files
+
+Best for:
+
+- internal dashboards
+- teams that already have a trusted way to run `kubectl`
+- environments where snapshot files can be mounted or written locally
+
+Behavior:
+
+- the web server reads snapshot files from paths such as `.local/gke-snapshot.local.json`
+- real data stays outside tracked source
+- the app falls back to the anonymized sample if those files are missing
+
+Recommended configuration:
+
+```bash
+GKE_DASHBOARD_SNAPSHOT_PATH=/absolute/path/to/gke-snapshot.local.json
+GKE_DASHBOARD_BATCH_STATUS_PATH=/absolute/path/to/gke-snapshot-batch-status.json
+GKE_DASHBOARD_HISTORY_PATH=/absolute/path/to/history/index.json
+```
+
+### 3. Self-hosted with batch collector and OpenCost
+
+Best for:
+
+- operator-facing environments
+- ongoing capacity review
+- cost and efficiency analysis
+
+Behavior:
+
+- a batch runner keeps the snapshot fresh
+- the dashboard reads batch health and history files
+- if an OpenCost summary file is present, cost surfaces switch from placeholder mode to actual cost mode
+
+Recommended configuration:
+
+```bash
+GKE_DASHBOARD_SNAPSHOT_PATH=/absolute/path/to/gke-snapshot.local.json
+GKE_DASHBOARD_BATCH_STATUS_PATH=/absolute/path/to/gke-snapshot-batch-status.json
+GKE_DASHBOARD_HISTORY_PATH=/absolute/path/to/history/index.json
+GKE_DASHBOARD_OPENCOST_PATH=/absolute/path/to/opencost-summary.json
+```
+
+## Runtime expectations
+
+The bundled sample works in any normal Next.js deployment.
+
+Real cluster data is different: the app expects the server runtime to be able to read local or mounted files at request time. In practice that means a self-hosted Node runtime is the most natural fit for real-data deployments.
+
+If you deploy to a platform with an ephemeral or restricted filesystem, treat the app as a sample-only demo unless you also provide a durable path for the snapshot, batch status, history, and optional OpenCost files.
+
 ## Using real snapshot data
 
 Collect a local snapshot from any shell that already has `kubectl` access to your target cluster:
